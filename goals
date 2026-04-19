@@ -1,0 +1,469 @@
+
+* A clear **meta introduction referencing the originating context and repository scope**
+* Increased **technical articulation per section**
+* Explicit **scalability pathways** across all layers
+* Maintained **machine-readability for agent like claude code builders**
+
+---
+
+# **AI Architecture Workbench (AAW) — v2.0**
+
+### **Meta Introduction (Context + Provenance)**
+
+This specification originates from the development intent described at:
+
+* GitHub Organization: PandaDesign-in
+* Context: An **AI-assisted architectural workflow system** being developed for a professional architecture practice
+
+### **Original Intent (Normalized Instruction Input)**
+
+> Develop a GitHub-hosted, fully self-contained AI system that assists an architect across knowledge retrieval, design reasoning, CAD generation, and functional code outputs. The system must:
+>
+> * Operate primarily from a static HTML/JS stack
+> * Use models such as Groq 8B / 70B and Whisper
+> * Encrypt all data using AES-256-GCM before persistence
+> * Use GitHub as the only persistent storage layer
+> * Authenticate strictly via static GitHub token
+> * Continuously log all chat sessions and artifacts
+> * Perform periodic (1-minute) encrypted state flushes
+> * Maintain weekly indexed session dumps
+> * Prevent any external decryption or third-party data access
+> * Ensure the AI system evolves contextually via logged interactions
+
+---
+
+# **1. System Definition**
+
+AAW v2.0 is a **client-dominant, cryptographically secure, GitHub-native AI orchestration environment** designed to support architectural workflows end-to-end.
+
+### **Functional Coverage**
+
+* Regulatory and design knowledge retrieval
+* Conversational reasoning with architectural context
+* CAD and parametric generation pipelines
+* Code generation (automation scripts, layout logic)
+* Speech-to-text and text-to-speech interaction logging
+
+### **Execution Philosophy**
+
+* Stateless compute, stateful Git-backed persistence
+* Deterministic reconstruction of all sessions from repository history
+* Strict separation between **compute (ephemeral)** and **storage (encrypted GitHub commits)**
+
+---
+
+# **2. Architectural Principles (Expanded)**
+
+### **2.1 GitHub as a Deterministic Data Layer**
+
+* GitHub acts as:
+
+  * Versioned datastore
+  * Audit log
+  * Knowledge archive
+* Every state mutation → committed artifact
+* Enables rollback, diffing, reproducibility
+
+---
+
+### **2.2 Client-Side Cryptographic Boundary**
+
+* All sensitive data:
+
+  * Encrypted **before transmission**
+  * Never exposed in plaintext outside runtime memory
+* Browser becomes:
+
+  * Execution boundary
+  * Security perimeter
+
+---
+
+### **2.3 Modular AI Orchestration**
+
+* AI models treated as interchangeable compute modules
+* Routing layer dynamically assigns:
+
+  * Lightweight reasoning → 8B
+  * Complex generation → 70B
+  * Audio → Whisper
+* Future extensibility:
+
+  * Local GGUF models
+  * Custom fine-tuned domain models
+
+---
+
+### **2.4 Continuous Append-Only Logging**
+
+* No mutation of historical records
+* All updates are:
+
+  * Incremental
+  * Time-indexed
+* Enables:
+
+  * Temporal reasoning reconstruction
+  * AI retraining pipelines (future)
+
+---
+
+### **2.5 Horizontal Scalability of Features**
+
+* Each subsystem is independently extensible:
+
+  * CAD generators → plugin-based
+  * Knowledge modules → folder-based ingestion
+  * AI personas → charmap-driven
+
+---
+
+# **3. System Architecture (Deepened)**
+
+```text
+[ Progressive Web App (Browser Runtime) ]
+        │
+        ▼
+[ Core JS Engine ]
+  ├── AI Orchestrator
+  ├── Encryption Engine
+  ├── Session Manager
+  ├── Knowledge Indexer
+  ├── CAD Generator Layer
+  └── GitHub Sync Engine
+        │
+        ▼
+[ External Compute (Stateless) ]
+  ├── Groq (8B / 70B)
+  ├── Whisper (Speech)
+  └── Optional Local LLM
+        │
+        ▼
+[ Encryption Boundary ]
+        │
+        ▼
+[ GitHub Repository (Persistent Layer) ]
+```
+
+---
+
+# **4. Repository Architecture (Scalable Layout)**
+
+```text
+/aaw-root
+│
+├── /app                  # Core runtime (extensible modules)
+│   ├── index.html
+│   ├── app.js
+│   ├── runtime/
+│   │   ├── state.js
+│   │   ├── scheduler.js
+│   │   └── eventbus.js
+│   │
+│   ├── crypto/
+│   │   ├── aes-gcm.js
+│   │   ├── key-derivation.js
+│   │   └── integrity.js
+│   │
+│   ├── ai/
+│   │   ├── orchestrator.js
+│   │   ├── router.js
+│   │   ├── prompts/
+│   │   ├── models.json
+│   │   └── charmap.json
+│   │
+│   ├── cad/
+│   │   ├── core/
+│   │   ├── plugins/
+│   │   └── exporters/
+│   │
+│   ├── speech/
+│   │   ├── stt.js
+│   │   ├── tts.js
+│   │   └── processors/
+│   │
+│   ├── github/
+│   │   ├── client.js
+│   │   ├── commit.js
+│   │   └── batching.js
+│   │
+│   └── ui/
+│       ├── chat/
+│       ├── cad-view/
+│       └── controls/
+│
+├── /sessions             # Time-partitioned encrypted logs
+│   └── /YYYY-WW/
+│       ├── session-*.enc
+│       └── index.json
+│
+├── /knowledge            # Expandable domain corpus
+│   ├── codes/
+│   ├── materials/
+│   ├── standards/
+│   └── custom/
+│
+├── /plugins              # Future extensibility layer
+│   ├── cad/
+│   ├── ai/
+│   └── exporters/
+│
+├── /config
+│   ├── system.json
+│   ├── security.json
+│   └── routing.json
+│
+└── /docs
+```
+
+---
+
+# **5. Authentication & Access Control**
+
+### **Model**
+
+* Static GitHub Personal Access Token (PAT)
+
+### **Operational Constraints**
+
+* Token never written to disk unencrypted
+* Suggested handling:
+
+  * Session memory
+  * Optional encrypted localStorage
+
+### **Scalability Path**
+
+* Future:
+
+  * Multi-token role system
+  * Repo-scoped service tokens
+  * Hardware-backed keys (WebAuthn)
+
+---
+
+# **6. Cryptographic System (Expanded)**
+
+### **Algorithm**
+
+* AES-256-GCM (Authenticated encryption)
+
+### **Key Derivation**
+
+* PBKDF2 or HKDF
+* Salted, high-iteration
+
+### **Security Extensions**
+
+* Integrity hash per session block
+* Optional chained hashing (log immutability)
+
+### **Scalability**
+
+* Upgrade path:
+
+  * Argon2 key derivation
+  * Multi-key layered encryption (per session / per user)
+
+---
+
+# **7. Session Logging Engine (Detailed)**
+
+### **Temporal Model**
+
+* Flush interval: 60 seconds
+* Session segmentation: Weekly (`YYYY-WW`)
+
+### **Indexing Strategy**
+
+* Each week maintains:
+
+  * `index.json` → session metadata
+  * Fast lookup without decrypting all sessions
+
+### **Write Strategy**
+
+* Buffered memory state
+* Batched commit to reduce API overhead
+
+### **Scalability Enhancements**
+
+* Delta compression before encryption
+* Chunked session storage
+* Lazy loading for large histories
+
+---
+
+# **8. AI Orchestration Layer (Detailed)**
+
+### **Responsibilities**
+
+* Prompt construction
+* Model routing
+* Context injection (from knowledge + session history)
+* Output normalization
+
+### **Routing Engine**
+
+* Rule-based + extensible heuristics:
+
+  * Token size
+  * Task classification
+  * Latency sensitivity
+
+### **Scalability**
+
+* Plugin-based model adapters
+* Multi-model consensus (future)
+* Local fallback inference
+
+---
+
+# **9. Knowledge System (Expanded)**
+
+### **Storage Model**
+
+* File-based corpus inside `/knowledge`
+
+### **Retrieval Layers**
+
+1. Keyword matching (baseline)
+2. Indexed search (JSON index)
+3. Optional embedding (client-side)
+
+### **Scalability**
+
+* Incremental indexing
+* WASM-based vector search
+* Domain-specific tagging
+
+---
+
+# **10. CAD & Functional Generation Layer**
+
+### **Capabilities**
+
+* Parametric layout generation
+* Structural modeling abstractions
+* Export pipelines
+
+### **Plugin Architecture**
+
+* Each generator:
+
+  * Self-contained module
+  * Defined input/output schema
+
+### **Scalability**
+
+* BIM adapters
+* CAD software bridges
+* Constraint solvers
+
+---
+
+# **11. Speech System**
+
+### **Pipeline**
+
+* Audio input → Whisper → transcript → session log
+
+### **Enhancements**
+
+* Speaker segmentation
+* Context tagging
+
+### **Scalability**
+
+* Offline STT models
+* Real-time streaming inference
+
+---
+
+# **12. GitHub Synchronization Layer**
+
+### **Core Functions**
+
+* File creation/update
+* Commit batching
+* Conflict handling
+
+### **Optimization**
+
+* Debounced commits
+* Parallel uploads
+
+### **Scalability**
+
+* Multi-repo sharding
+* Branch-based session isolation
+
+---
+
+# **13. PWA Runtime**
+
+### **Capabilities**
+
+* Offline operation
+* Sync queue
+* Cached knowledge
+
+### **Scalability**
+
+* Background sync workers
+* IndexedDB caching layers
+
+---
+
+# **14. Security Model (Expanded)**
+
+| Layer          | Mechanism                          |
+| -------------- | ---------------------------------- |
+| Encryption     | AES-256-GCM                        |
+| Key Derivation | PBKDF2                             |
+| Transport      | HTTPS                              |
+| Storage        | Encrypted Git blobs                |
+| Access         | GitHub PAT                         |
+| Integrity      | Auth tags + optional hash chaining |
+
+---
+
+# **15. Hard Constraints**
+
+* No plaintext persistence outside runtime memory
+* No external database systems
+* No server-side decryption
+* GitHub is the sole persistent backend
+
+---
+
+# **16. Evolution & Extensibility Roadmap**
+
+* Local LLM deployment (GPU-backed)
+* Multi-user encrypted collaboration
+* CAD-to-BIM transformation pipelines
+* Autonomous design agents
+* Continuous learning from session logs
+
+---
+
+# **17. AI Agent Build Targets**
+
+AI systems (Codex, etc.) should:
+
+1. Scaffold full repository
+2. Implement cryptographic layer
+3. Build GitHub sync engine
+4. Implement orchestration logic
+5. Create modular UI
+6. Enable plugin system
+7. Integrate CAD generators
+8. Implement session logging engine
+
+---
+
+If needed next:
+
+* Full **production-grade GitHub API client (rate-limit aware)**
+* **End-to-end encryption + key lifecycle implementation**
+* **Architect-specific CAD generator modules (parametric + regulatory)**
