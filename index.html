@@ -313,6 +313,33 @@
   </div>
 </div>
 
+<!-- GROQ KEY MODAL — shown if no key found after boot -->
+<div class="overlay hide" id="modal-groq">
+  <div class="mbox">
+    <div class="mhdr">
+      <div class="mlogo">🤖</div>
+      <div class="mtitle">Add Groq API Key</div>
+      <div class="msub">Enables AI chat, file analysis, and voice.<br>Free at <strong>console.groq.com</strong> — takes 30 seconds.</div>
+    </div>
+    <div class="mbody">
+      <div class="mstep cur">
+        <div class="fg">
+          <div class="fl">Groq API Key</div>
+          <div class="fh">Your key will be saved encrypted in your vault — you only enter this once.</div>
+          <input type="password" class="fi" id="groq-key-input" placeholder="gsk_…" autocomplete="off" />
+        </div>
+        <div style="font-size:11px;color:var(--t2);line-height:1.6;background:var(--bg3);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--bd)">
+          🔒 Encrypted with your PAT-derived key and stored in your GitHub vault. Never sent anywhere except Groq's API.
+        </div>
+      </div>
+    </div>
+    <div class="mftr">
+      <button class="sbtn" id="groq-skip">Skip for now</button>
+      <button class="pbtn" id="groq-save">Save Key</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONTEXT MENU -->
 <div id="ctxmenu">
   <div class="ci" data-a="open">📂 Open in Viewer</div>
@@ -594,14 +621,34 @@ window.toast = function(msg, type = 'nfo', ms = 3000) {
 };
 
 // ── Loading overlay ──────────────────────────
+function ensureLoadingEl() {
+  let el = document.getElementById('loading');
+  if (!el) {
+    // Was removed — recreate it
+    el = document.createElement('div');
+    el.id = 'loading';
+    el.innerHTML = `
+      <div class="ll">🐼</div>
+      <div class="lt">PandaAI</div>
+      <div class="pbar-wrap"><div class="pbar" id="pbar"></div></div>
+      <div id="load-lbl" class="ls">Starting…</div>`;
+    document.body.appendChild(el);
+  } else {
+    el.classList.remove('hide');
+  }
+  return el;
+}
 window.setLoadProgress = function(pct, label) {
-  document.getElementById('pbar').style.width = pct + '%';
-  if (label) document.getElementById('load-lbl').textContent = label;
+  const bar = document.getElementById('pbar');
+  const lbl = document.getElementById('load-lbl');
+  if (bar) bar.style.width = pct + '%';
+  if (label && lbl) lbl.textContent = label;
 };
 window.hideLoading = function() {
   const el = document.getElementById('loading');
+  if (!el) return;
   el.classList.add('hide');
-  setTimeout(() => el.remove(), 600);
+  setTimeout(() => { try { el.remove(); } catch(e){} }, 600);
 };
 
 // ── Sync status ──────────────────────────────
@@ -729,8 +776,34 @@ document.getElementById('s-pat').addEventListener('keydown', e => {
 
 window.showSetup = function() {
   document.getElementById('modal-setup').classList.remove('hide');
-  document.getElementById('s-pat').focus();
+  setTimeout(() => document.getElementById('s-pat').focus(), 100);
 };
+
+// ── Groq key modal ────────────────────────────
+window.showGroqModal = function() {
+  document.getElementById('modal-groq').classList.remove('hide');
+  setTimeout(() => document.getElementById('groq-key-input').focus(), 100);
+};
+document.getElementById('groq-save').addEventListener('click', async () => {
+  const key = document.getElementById('groq-key-input').value.trim();
+  if (!key || !key.startsWith('gsk_')) { toast('Enter a valid Groq key (starts with gsk_)', 'er'); return; }
+  document.getElementById('groq-save').textContent = 'Saving…';
+  try {
+    await window.__pandaSync.saveGroqKey(key);
+    sessionStorage.setItem('panda_groq', key);
+    if (window.__pandaAI) await window.__pandaAI.init({ groqKey: key, persona: window.__persona });
+    document.getElementById('modal-groq').classList.add('hide');
+    toast('Groq key saved — AI enabled', 'ok', 3000);
+  } catch(e) {
+    toast('Save failed: ' + e.message, 'er', 5000);
+    document.getElementById('groq-save').textContent = 'Save Key';
+  }
+});
+document.getElementById('groq-skip').addEventListener('click', () => {
+  document.getElementById('modal-groq').classList.add('hide');
+  toast('AI disabled — add Groq key via ⚙️ Settings anytime', 'nfo', 5000);
+});
+document.getElementById('s-chg-groq').addEventListener('click', () => showGroqModal());
 
 // ── Settings actions ──────────────────────────
 document.getElementById('s-sync').addEventListener('click', () => {
@@ -744,12 +817,7 @@ document.getElementById('s-clr-cache').addEventListener('click', () => {
     });
   }
 });
-document.getElementById('s-chg-groq').addEventListener('click', () => {
-  const k = prompt('Enter new Groq API key (will be saved to vault):');
-  if (k && k.trim() && window.__pandaSync) {
-    window.__pandaSync.saveGroqKey(k.trim()).then(() => toast('Groq key updated in vault', 'ok'));
-  }
-});
+// s-chg-groq wired above via showGroqModal
 document.getElementById('s-chg-pat').addEventListener('click', () => {
   toast('To change your PAT, reload the page and enter the new one', 'nfo', 5000);
 });
@@ -788,55 +856,57 @@ window.loadMod = function(path) {
 
 // ── App launch (after setup) ──────────────────
 async function launchApp() {
+  ensureLoadingEl(); // re-create overlay if removed during setup modal
+
   try {
-    // Step 1 — crypto (required)
     setLoadProgress(8, 'Initialising encryption…');
     await loadMod('modules/crypto.js');
     await window.__pandaCrypto.init(window.__setupData.passphrase);
 
-    // Step 2 — GitHub vault (required)
-    setLoadProgress(20, 'Connecting to vault…');
+    setLoadProgress(22, 'Connecting to vault…');
     await loadMod('modules/github-sync.js');
     await window.__pandaSync.connect(window.__setupData.pat, window.__setupData.repo);
 
-    // Step 3 — file store (required for viewer)
-    setLoadProgress(38, 'Loading file vault…');
+    setLoadProgress(40, 'Loading file vault…');
     await loadMod('modules/file-store.js');
     await window.__pandaFiles.init();
 
-    // Step 4 — Three.js viewer (wait for globals if still loading)
-    setLoadProgress(55, 'Loading 3D viewer…');
+    setLoadProgress(58, 'Loading 3D viewer…');
     if (!window.__threeReady) {
       await new Promise(res => document.addEventListener('three-ready', res, { once: true }));
     }
     await loadMod('modules/renderer.js');
     await window.__pandaRenderer.init('viewer-canvas');
 
-    // Step 5 — AI (optional — works without Groq key, just shows prompt)
     setLoadProgress(75, 'Loading AI…');
     await loadMod('modules/ai-router.js');
-    let groqKey = window.__setupData.groqKey ||
-                  sessionStorage.getItem('panda_groq') ||
-                  await window.__pandaSync.loadGroqKey();
-    if (!groqKey) {
-      // First run and no key provided — ask once
-      groqKey = prompt('Enter your Groq API key to enable AI.\n(Free at console.groq.com — gsk_…)\nLeave blank to skip for now:');
-      if (groqKey && groqKey.trim()) {
-        groqKey = groqKey.trim();
-        await window.__pandaSync.saveGroqKey(groqKey);
-      }
-    }
-    await window.__pandaAI.init({ groqKey: groqKey || '', persona: window.__persona });
-    if (!groqKey) toast('AI disabled — add your Groq key in ⚙️ Settings → Groq API Key', 'nfo', 7000);
 
-    // Step 6 — analysis engine
-    setLoadProgress(90, 'Loading analysis engine…');
+    // Resolve Groq key — priority: modal input > sessionStorage > vault
+    let groqKey = (window.__setupData.groqKey || '').trim()
+               || sessionStorage.getItem('panda_groq')
+               || await window.__pandaSync.loadGroqKey().catch(() => null);
+
+    // If modal provided a key, save it to vault right now
+    if ((window.__setupData.groqKey || '').trim()) {
+      await window.__pandaSync.saveGroqKey(window.__setupData.groqKey.trim()).catch(e =>
+        console.warn('[boot] groq key vault save:', e.message)
+      );
+    }
+
+    if (groqKey) sessionStorage.setItem('panda_groq', groqKey);
+    await window.__pandaAI.init({ groqKey: groqKey || '', persona: window.__persona });
+
+    setLoadProgress(92, 'Loading analysis engine…');
     await loadMod('modules/analysis.js');
     window.__pandaAnalysis.init();
 
     setLoadProgress(100, 'Ready');
     setTimeout(hideLoading, 350);
     toast('🐼 PandaAI ready', 'ok', 2500);
+
+    // If no Groq key, show the Groq modal (proper UI, no prompt())
+    if (!groqKey) showGroqModal();
+
     window.__setupData = null;
 
   } catch(e) {

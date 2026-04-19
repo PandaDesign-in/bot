@@ -19,7 +19,6 @@ const PRECACHE = [
   './modules/renderer.js',
   './modules/ai-router.js',
   './modules/analysis.js',
-  './modules/loaders/loader-native.js',
   './modules/loaders/loader-dxf.js',
   './modules/loaders/loader-ifc.js',
   './modules/loaders/loader-step.js',
@@ -51,15 +50,14 @@ const CDN_LIBS = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/helpers/VertexNormalsHelper.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js',
-  // DXF parser
-  'https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/src/DxfParser.js',
+  // DXF parser (fetched on demand, not pre-cached — CDN version varies)
+  // 'https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/src/DxfParser.js',
   // web-ifc (BIM/IFC)
   'https://cdn.jsdelivr.net/npm/web-ifc@0.0.51/web-ifc-api.js',
   'https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.126/IFCLoader.js',
   // Rhino 3DM
   'https://cdn.jsdelivr.net/npm/rhino3dm@8.0.1/rhino3dm.module.min.js',
-  // Potree-like for point clouds (LAZ/LAS)
-  'https://cdn.jsdelivr.net/npm/laz-perf@0.1.7/lib/laz-perf.js',
+  // Point cloud libs fetched on demand
 ];
 
 // ── Install: pre-cache all app files ──────────
