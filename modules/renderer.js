@@ -160,6 +160,8 @@ async function load(meta, arrayBuffer) {
     else if (L === '3dm')      obj = await loadExternal('loader-3dm',   m => m.load(arrayBuffer, T, defaultMat));
     else if (L === 'cloud')    obj = await loadExternal('loader-cloud', m => m.load(meta, arrayBuffer, T));
     else if (L === 'geo')      obj = await loadExternal('loader-geo',   m => m.load(meta, arrayBuffer, T));
+    else if (L === 'gcode')    obj = await loadExternal('loader-gcode', m => m.load(arrayBuffer, T, defaultMat));
+    else if (L === 'vox')      obj = await loadExternal('loader-vox',   m => m.load(arrayBuffer, T, defaultMat));
     else if (L === 'fallback') { showFallback(meta); return; }
     else                       obj = await loadNative(meta, arrayBuffer);
 
@@ -187,6 +189,8 @@ const _LOADER_KEYS = {
   'loader-3dm':   '__3dmLoader',
   'loader-cloud': '__cloudLoader',
   'loader-geo':   '__geoLoader',
+  'loader-gcode': '__gcodeLoader',
+  'loader-vox':   '__voxLoader',
 };
 
 async function loadExternal(loaderName, fn) {
@@ -200,13 +204,15 @@ async function loadExternal(loaderName, fn) {
 // ── Native Three.js loaders ───────────────────
 async function loadNative(meta, buf) {
   const ext = meta.ext.toLowerCase();
+  // OFF format handled separately (no Three.js loader)
+  if (ext === 'off') return parseOFF(buf, T, defaultMat);
+
   const map = {
     stl:'STLLoader', obj:'OBJLoader', gltf:'GLTFLoader', glb:'GLTFLoader',
     fbx:'FBXLoader', dae:'ColladaLoader', '3ds':'TDSLoader', ply:'PLYLoader',
     pcd:'PCDLoader', wrl:'VRMLLoader', vrml:'VRMLLoader', vtk:'VTKLoader',
-    off:'OBJLoader',
-    '3mf':'ThreeMFLoader',
-    amf:'AMFLoader',
+    '3mf':'ThreeMFLoader', amf:'AMFLoader',
+    usdz:'USDZLoader', usd:'USDZLoader',
     // lwo/x3d removed in Three.js r157/r152 — handled as fallback in FORMAT_MAP
   };
   const clsName = map[ext];
@@ -235,14 +241,17 @@ async function loadNative(meta, buf) {
     return new Promise((res, rej) => loader.parse(buf, '', o => res(center(o)), rej));
   }
   if (ext === '3mf') {
-    // ThreeMFLoader.parse returns a THREE.Group synchronously
     const group = loader.parse(buf);
     return center(group);
   }
   if (ext === 'amf') {
-    // AMFLoader.parse returns a THREE.Group
     const group = loader.parse(buf);
     return center(group);
+  }
+  if (ext === 'usdz' || ext === 'usd') {
+    // USDZLoader.parse may return a Group directly or via Promise
+    const result = await Promise.resolve(loader.parse(buf));
+    return center(result);
   }
   // Text-based formats
   const text = new TextDecoder().decode(buf);
@@ -260,6 +269,38 @@ async function loadNative(meta, buf) {
     const res2 = loader.parse(buf);
     return center(res2.scene || res2);
   }
+}
+
+// ── OFF (Object File Format) parser ──────────
+function parseOFF(buf, T, defaultMat) {
+  const text  = new TextDecoder().decode(buf);
+  const lines = text.split(/\r?\n/).map(l => l.replace(/#.*/,'').trim()).filter(Boolean);
+  let li = 0;
+  // Skip optional "OFF" header
+  if (lines[li].startsWith('OFF')) li++;
+  if (!lines[li]) throw new Error('OFF: missing size line');
+  const [nV, nF] = lines[li++].split(/\s+/).map(Number);
+
+  const verts = [];
+  for (let i = 0; i < nV; i++) {
+    const [x, y, z] = lines[li++].split(/\s+/).map(Number);
+    verts.push(x, y, z);
+  }
+  const positions = [], indices = [];
+  for (let i = 0; i < nF; i++) {
+    const parts = lines[li++].split(/\s+/).map(Number);
+    const n = parts[0];
+    if (n >= 3) {
+      for (let j = 1; j < n - 1; j++) {
+        indices.push(parts[1], parts[j+1], parts[j+2]);
+      }
+    }
+  }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.BufferAttribute(new Float32Array(verts), 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return center(new T.Mesh(geo, defaultMat()));
 }
 
 function defaultMat() {

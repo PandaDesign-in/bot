@@ -60,7 +60,7 @@ async function idbDelete(id) {
 
 // ── Format detection map ──────────────────────
 const FORMAT_MAP = {
-  // Group A — Three.js native 3D
+  // ── Group A: Three.js native 3D ──────────────
   stl:   { group:'A', label:'STL',    icon:'🧊', loader:'native' },
   obj:   { group:'A', label:'OBJ',    icon:'🧊', loader:'native' },
   mtl:   { group:'A', label:'MTL',    icon:'🎨', loader:'native' },
@@ -74,53 +74,97 @@ const FORMAT_MAP = {
   wrl:   { group:'A', label:'VRML',   icon:'🌐', loader:'native' },
   vrml:  { group:'A', label:'VRML',   icon:'🌐', loader:'native' },
   vtk:   { group:'A', label:'VTK',    icon:'🧊', loader:'native' },
-  off:   { group:'A', label:'OFF',    icon:'🧊', loader:'native' },
-  // x3d/lwo removed from Three.js — graceful fallback
-  x3d:   { group:'D', label:'X3D',    icon:'🌐', loader:'fallback', hint:'Export to GLTF or OBJ' },
-  lwo:   { group:'D', label:'LWO',    icon:'🧊', loader:'fallback', hint:'Export to FBX or OBJ from LightWave' },
-  // Group B — WASM / specialised 3D parsers
-  dxf:   { group:'B', label:'DXF',    icon:'📐', loader:'dxf'  },
-  ifc:   { group:'B', label:'IFC',    icon:'🏗️', loader:'ifc'  },
-  ifczip:{ group:'B', label:'IFC',    icon:'🏗️', loader:'ifc'  },
-  step:  { group:'B', label:'STEP',   icon:'⚙️', loader:'step' },
-  stp:   { group:'B', label:'STEP',   icon:'⚙️', loader:'step' },
-  iges:  { group:'B', label:'IGES',   icon:'⚙️', loader:'step' },
-  igs:   { group:'B', label:'IGES',   icon:'⚙️', loader:'step' },
-  sat:   { group:'B', label:'SAT',    icon:'⚙️', loader:'step' },
-  dwg:   { group:'B', label:'DWG',    icon:'📐', loader:'dwg'  },
-  '3mf': { group:'B', label:'3MF',    icon:'🖨️', loader:'native' },
-  amf:   { group:'B', label:'AMF',    icon:'🖨️', loader:'native' },
-  '3dm': { group:'B', label:'3DM',    icon:'🦏', loader:'3dm'  },
-  skp:   { group:'D', label:'SKP',    icon:'🏠', loader:'fallback', hint:'Export to GLTF/DAE from SketchUp' },
-  usdz:  { group:'B', label:'USDZ',   icon:'📦', loader:'native' },
-  usd:   { group:'B', label:'USD',    icon:'📦', loader:'native' },
-  // Group C — Point clouds
+  off:   { group:'A', label:'OFF',    icon:'🧊', loader:'native' },  // inline OFF parser
+  '3mf': { group:'A', label:'3MF',    icon:'🖨️', loader:'native' },
+  amf:   { group:'A', label:'AMF',    icon:'🖨️', loader:'native' },
+  usdz:  { group:'A', label:'USDZ',   icon:'📦', loader:'native' },
+  usd:   { group:'A', label:'USD',    icon:'📦', loader:'native' },
+  // ── Group B: WASM / specialised parsers ──────
+  dxf:    { group:'B', label:'DXF',     icon:'📐', loader:'dxf'   },
+  dxb:    { group:'B', label:'DXF-B',   icon:'📐', loader:'dxf',  hint:'DXF binary — may render as DXF' },
+  ifc:    { group:'B', label:'IFC',     icon:'🏗️', loader:'ifc'   },
+  ifczip: { group:'B', label:'IFC',     icon:'🏗️', loader:'ifc'   },
+  ifcxml: { group:'B', label:'IFC-XML', icon:'🏗️', loader:'ifc'   },
+  step:   { group:'B', label:'STEP',    icon:'⚙️', loader:'step'  },
+  stp:    { group:'B', label:'STEP',    icon:'⚙️', loader:'step'  },
+  p21:    { group:'B', label:'STEP',    icon:'⚙️', loader:'step'  },
+  iges:   { group:'B', label:'IGES',    icon:'⚙️', loader:'step'  },
+  igs:    { group:'B', label:'IGES',    icon:'⚙️', loader:'step'  },
+  sat:    { group:'B', label:'SAT',     icon:'⚙️', loader:'step'  },
+  sab:    { group:'B', label:'SAB',     icon:'⚙️', loader:'step'  },
+  dwg:    { group:'B', label:'DWG',     icon:'📐', loader:'dwg'   },
+  '3dm':  { group:'B', label:'3DM',     icon:'🦏', loader:'3dm'   },
+  // ── Group C: Point clouds ─────────────────────
   e57:   { group:'C', label:'E57',    icon:'☁️', loader:'cloud' },
   las:   { group:'C', label:'LAS',    icon:'☁️', loader:'cloud' },
   laz:   { group:'C', label:'LAZ',    icon:'☁️', loader:'cloud' },
   xyz:   { group:'C', label:'XYZ',    icon:'☁️', loader:'cloud' },
   pts:   { group:'C', label:'PTS',    icon:'☁️', loader:'cloud' },
   ptx:   { group:'C', label:'PTX',    icon:'☁️', loader:'cloud' },
-  // Group D — Proprietary (graceful fallback)
-  rvt:   { group:'D', label:'RVT',    icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
-  rfa:   { group:'D', label:'RFA',    icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
-  blend: { group:'D', label:'BLEND',  icon:'🍊', loader:'fallback', hint:'Export to GLTF from Blender' },
-  max:   { group:'D', label:'MAX',    icon:'🏗️', loader:'fallback', hint:'Export to FBX/OBJ from 3ds Max' },
-  ma:    { group:'D', label:'MA',     icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
-  mb:    { group:'D', label:'MB',     icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
+  // ── Group D: Proprietary (fallback + guide) ───
+  // Autodesk
+  rvt:   { group:'D', label:'RVT',    icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit (File → Export → IFC)' },
+  rfa:   { group:'D', label:'RFA',    icon:'🏢', loader:'fallback', hint:'Export family to IFC or GLTF from Revit' },
+  rvz:   { group:'D', label:'RVZ',    icon:'🏢', loader:'fallback', hint:'Revit zip — extract and export to IFC' },
+  nwd:   { group:'D', label:'NWD',    icon:'🔍', loader:'fallback', hint:'Export to IFC from Navisworks' },
+  nwc:   { group:'D', label:'NWC',    icon:'🔍', loader:'fallback', hint:'Navisworks cache — export to IFC' },
+  dwf:   { group:'D', label:'DWF',    icon:'📐', loader:'fallback', hint:'Design Web Format — export to DXF/DWG from AutoCAD' },
+  dwfx:  { group:'D', label:'DWFx',   icon:'📐', loader:'fallback', hint:'Export to DXF/DWG from AutoCAD' },
+  ipt:   { group:'D', label:'IPT',    icon:'⚙️', loader:'fallback', hint:'Autodesk Inventor part — export to STEP' },
+  iam:   { group:'D', label:'IAM',    icon:'⚙️', loader:'fallback', hint:'Autodesk Inventor assembly — export to STEP' },
+  idw:   { group:'D', label:'IDW',    icon:'📐', loader:'fallback', hint:'Autodesk Inventor drawing — export to DXF' },
+  f3d:   { group:'D', label:'F3D',    icon:'⚙️', loader:'fallback', hint:'Export to STEP from Fusion 360 (File → Export)' },
+  f3z:   { group:'D', label:'F3Z',    icon:'⚙️', loader:'fallback', hint:'Fusion 360 archive — export to STEP' },
+  // SolidWorks
   sldprt:{ group:'D', label:'SLDPRT', icon:'⚙️', loader:'fallback', hint:'Export to STEP from SolidWorks' },
   sldasm:{ group:'D', label:'SLDASM', icon:'⚙️', loader:'fallback', hint:'Export to STEP from SolidWorks' },
-  f3d:   { group:'D', label:'F3D',    icon:'⚙️', loader:'fallback', hint:'Export to STEP from Fusion 360' },
-  nwd:   { group:'D', label:'NWD',    icon:'🔍', loader:'fallback', hint:'Export to IFC from Navisworks' },
+  slddrw:{ group:'D', label:'SLDDRW', icon:'📐', loader:'fallback', hint:'SolidWorks drawing — export to DXF' },
+  // PTC / Parametric
+  prt:   { group:'D', label:'PRT',    icon:'⚙️', loader:'fallback', hint:'Creo/NX part — export to STEP' },
+  asm:   { group:'D', label:'ASM',    icon:'⚙️', loader:'fallback', hint:'Creo/NX assembly — export to STEP' },
+  // Solid Edge (Siemens)
+  par:   { group:'D', label:'PAR',    icon:'⚙️', loader:'fallback', hint:'Solid Edge part — export to STEP' },
+  psm:   { group:'D', label:'PSM',    icon:'⚙️', loader:'fallback', hint:'Solid Edge sheet metal — export to STEP' },
+  // CATIA (Dassault)
+  catpart:    { group:'D', label:'CATPart',    icon:'✈️', loader:'fallback', hint:'CATIA part — export to STEP/IGES' },
+  catproduct: { group:'D', label:'CATProduct', icon:'✈️', loader:'fallback', hint:'CATIA product — export to STEP/IGES' },
+  cgr:        { group:'D', label:'CGR',        icon:'✈️', loader:'fallback', hint:'CATIA Graphical Rep — export to STEP' },
+  // JT (Siemens/PLM)
+  jt:    { group:'D', label:'JT',     icon:'⚙️', loader:'fallback', hint:'JT Open — export to STEP from NX/SolidWorks' },
+  // Bentley
+  dgn:   { group:'D', label:'DGN',    icon:'🏗️', loader:'fallback', hint:'MicroStation — export to DXF/DWG via ODA or MicroStation' },
+  // SketchUp
+  skp:   { group:'D', label:'SKP',    icon:'🏠', loader:'fallback', hint:'Export to GLTF or DAE from SketchUp' },
+  // Blender / DCC
+  blend: { group:'D', label:'BLEND',  icon:'🍊', loader:'fallback', hint:'Export to GLTF from Blender (File → Export → GLTF 2.0)' },
+  // 3ds Max / Maya
+  max:   { group:'D', label:'MAX',    icon:'🏗️', loader:'fallback', hint:'Export to FBX or OBJ from 3ds Max' },
+  ma:    { group:'D', label:'MA',     icon:'🎬', loader:'fallback', hint:'Export to FBX or OBJ from Maya' },
+  mb:    { group:'D', label:'MB',     icon:'🎬', loader:'fallback', hint:'Export to FBX or OBJ from Maya' },
+  // Cinema 4D / ZBrush / LightWave
   c4d:   { group:'D', label:'C4D',    icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Cinema 4D' },
   ztl:   { group:'D', label:'ZTL',    icon:'🗿', loader:'fallback', hint:'Export to OBJ from ZBrush' },
-  // Group E — Geospatial
-  kml:     { group:'E', label:'KML',     icon:'🌍', loader:'geo' },
-  kmz:     { group:'E', label:'KMZ',     icon:'🌍', loader:'geo' },
-  geojson: { group:'E', label:'GeoJSON', icon:'🌍', loader:'geo' },
-  dem:     { group:'E', label:'DEM',     icon:'⛰️', loader:'geo' },
-  gml:     { group:'E', label:'GML',     icon:'🌍', loader:'geo' },
-  // Group F — 2D Images
+  x3d:   { group:'D', label:'X3D',    icon:'🌐', loader:'fallback', hint:'Export to GLTF or OBJ (X3D removed from Three.js r152)' },
+  lwo:   { group:'D', label:'LWO',    icon:'🧊', loader:'fallback', hint:'Export to FBX or OBJ from LightWave' },
+  // Open-source tools
+  fcstd: { group:'D', label:'FCStd',  icon:'⚙️', loader:'fallback', hint:'Export to STEP or OBJ from FreeCAD' },
+  scad:  { group:'D', label:'SCAD',   icon:'⚙️', loader:'fallback', hint:'OpenSCAD — render and export to STL/OBJ' },
+  // BIM collaboration
+  smc:   { group:'D', label:'SMC',    icon:'🔍', loader:'fallback', hint:'Solibri — export to IFC for viewing' },
+  // ── Group E: Geospatial & urban ───────────────
+  kml:        { group:'E', label:'KML',       icon:'🌍', loader:'geo' },
+  kmz:        { group:'E', label:'KMZ',       icon:'🌍', loader:'geo' },
+  geojson:    { group:'E', label:'GeoJSON',   icon:'🌍', loader:'geo' },
+  json:       { group:'E', label:'GeoJSON',   icon:'🌍', loader:'geo' },  // may be GeoJSON
+  dem:        { group:'E', label:'DEM',       icon:'⛰️', loader:'geo' },
+  asc:        { group:'E', label:'DEM/ASC',   icon:'⛰️', loader:'geo' },
+  gml:        { group:'E', label:'CityGML',   icon:'🌍', loader:'geo' },
+  cityjson:   { group:'E', label:'CityJSON',  icon:'🌍', loader:'geo' },
+  gpx:        { group:'E', label:'GPX',       icon:'🗺️', loader:'geo' },
+  osm:        { group:'E', label:'OSM',       icon:'🌍', loader:'geo' },
+  shp:        { group:'E', label:'Shapefile', icon:'🗺️', loader:'geo' },
+  geotiff:    { group:'E', label:'GeoTIFF',   icon:'🛰️', loader:'2d'  },
+  // ── Group F: 2D images / documents ───────────
   png:   { group:'F', label:'PNG',    icon:'🖼️', loader:'2d'     },
   jpg:   { group:'F', label:'JPG',    icon:'🖼️', loader:'2d'     },
   jpeg:  { group:'F', label:'JPG',    icon:'🖼️', loader:'2d'     },
@@ -129,8 +173,22 @@ const FORMAT_MAP = {
   webp:  { group:'F', label:'WebP',   icon:'🖼️', loader:'2d'     },
   tiff:  { group:'F', label:'TIFF',   icon:'🖼️', loader:'2d'     },
   tif:   { group:'F', label:'TIFF',   icon:'🖼️', loader:'2d'     },
+  heic:  { group:'F', label:'HEIC',   icon:'🖼️', loader:'2d'     },
+  heif:  { group:'F', label:'HEIF',   icon:'🖼️', loader:'2d'     },
+  avif:  { group:'F', label:'AVIF',   icon:'🖼️', loader:'2d'     },
   svg:   { group:'F', label:'SVG',    icon:'📐', loader:'2d-svg' },
+  eps:   { group:'F', label:'EPS',    icon:'📐', loader:'2d-svg' },  // attempt as SVG
+  ai:    { group:'F', label:'AI',     icon:'📐', loader:'2d-svg' },  // Adobe Illustrator (SVG-compatible)
   pdf:   { group:'F', label:'PDF',    icon:'📄', loader:'2d-pdf' },
+  // ── Group G: Fabrication / toolpaths ─────────
+  gcode: { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  gc:    { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  nc:    { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  cnc:   { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  tap:   { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  ngc:   { group:'G', label:'G-code', icon:'🔧', loader:'gcode' },
+  // ── Group H: Voxel / game ─────────────────────
+  vox:   { group:'H', label:'VOX',    icon:'🎮', loader:'vox' },
 };
 
 function getFormat(filename) {

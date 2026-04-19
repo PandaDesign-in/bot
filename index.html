@@ -38,6 +38,7 @@
     import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
     import { ThreeMFLoader }       from 'three/addons/loaders/3MFLoader.js';
     import { AMFLoader }           from 'three/addons/loaders/AMFLoader.js';
+    import { USDZLoader }          from 'three/addons/loaders/USDZLoader.js';
     // LWOLoader removed in r157, X3DLoader removed in r152 — not available in r160
 
     window.THREE = THREE;
@@ -45,7 +46,7 @@
       OrbitControls, STLLoader, OBJLoader, MTLLoader, GLTFLoader,
       FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
       VRMLLoader, VTKLoader, VertexNormalsHelper,
-      ThreeMFLoader, AMFLoader
+      ThreeMFLoader, AMFLoader, USDZLoader
     };
     window.__threeReady = true;
     document.dispatchEvent(new Event('three-ready'));

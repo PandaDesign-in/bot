@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v4';
+const VERSION = 'pandaai-v5';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
@@ -26,6 +26,8 @@ const PRECACHE = [
   './modules/loaders/loader-3dm.js',
   './modules/loaders/loader-cloud.js',
   './modules/loaders/loader-geo.js',
+  './modules/loaders/loader-gcode.js',
+  './modules/loaders/loader-vox.js',
 ];
 
 // CDN libraries — pre-cached after install
@@ -47,6 +49,7 @@ const CDN_LIBS = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/VTKLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/3MFLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/AMFLoader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/USDZLoader.js',
   // LWOLoader removed from Three.js r157 — skip
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/FirstPersonControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',
