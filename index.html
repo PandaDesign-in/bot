@@ -237,59 +237,37 @@
   <div id="load-lbl">Preparing…</div>
 </div>
 
-<!-- SETUP MODAL -->
+<!-- SETUP MODAL — single screen, one key -->
 <div class="overlay hide" id="modal-setup">
   <div class="mbox">
     <div class="mhdr">
       <div class="mlogo">🐼</div>
-      <div class="mtitle">Welcome to PandaAI</div>
-      <div class="msub">Your intelligent design companion.<br>30-second setup, then you're in.</div>
-      <div class="sdots">
-        <div class="sdot2 cur" data-s="0"></div>
-        <div class="sdot2" data-s="1"></div>
-        <div class="sdot2" data-s="2"></div>
-      </div>
+      <div class="mtitle">PandaAI</div>
+      <div class="msub">Enter your GitHub PAT to unlock.<br>That's all you need — every session.</div>
     </div>
     <div class="mbody">
-      <!-- Step 0: passphrase -->
       <div class="mstep cur" id="mstep-0">
         <div class="fg">
-          <div class="fl">Encryption Passphrase</div>
-          <div class="fh">Encrypts all your files and sessions. Never leaves your browser. Entered fresh each session — nothing is stored persistently.</div>
-          <input type="password" class="fi" id="s-pass" placeholder="Choose a strong passphrase…" autocomplete="new-password" />
-        </div>
-        <div class="fg">
-          <div class="fl">Confirm Passphrase</div>
-          <input type="password" class="fi" id="s-pass2" placeholder="Repeat passphrase…" autocomplete="new-password" />
-        </div>
-      </div>
-      <!-- Step 1: GitHub PAT -->
-      <div class="mstep" id="mstep-1">
-        <div class="fg">
           <div class="fl">GitHub Personal Access Token</div>
-          <div class="fh">Reads and writes your encrypted vault to the repo.<br>Required scope: <strong>repo</strong>.<br>Generate: GitHub → Settings → Developer settings → PAT.</div>
-          <input type="password" class="fi" id="s-pat" placeholder="ghp_…" autocomplete="off" />
+          <div class="fh">
+            Your PAT is the single key — it authenticates the vault <em>and</em> encrypts all data.<br>
+            Required scope: <strong>repo</strong>.<br>
+            Generate: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained or Classic.
+          </div>
+          <input type="password" class="fi" id="s-pat" placeholder="ghp_… or github_pat_…" autocomplete="off" autofocus />
         </div>
-        <div class="fg">
-          <div class="fl">Repository (owner/repo)</div>
-          <input type="text" class="fi" id="s-repo" value="PandaDesign-in/bot" autocomplete="off" />
+        <div class="fg" id="s-groq-wrap">
+          <div class="fl">Groq API Key <span style="color:var(--t2);font-weight:400;font-size:11px">(first time only — saved to vault)</span></div>
+          <div class="fh">Powers chat (8B), file analysis (70B), and voice (Whisper). Free at <strong>console.groq.com</strong>.<br>Leave blank if already saved.</div>
+          <input type="password" class="fi" id="s-groq" placeholder="gsk_… (leave blank if already saved)" autocomplete="off" />
         </div>
-      </div>
-      <!-- Step 2: Groq key -->
-      <div class="mstep" id="mstep-2">
-        <div class="fg">
-          <div class="fl">Groq API Key</div>
-          <div class="fh">Powers AI chat (8B), file analysis (70B), and voice (Whisper).<br>Free at: <strong>console.groq.com</strong></div>
-          <input type="password" class="fi" id="s-groq" placeholder="gsk_…" autocomplete="off" />
-        </div>
-        <div class="fg" style="background:var(--bg3);padding:10px 12px;border-radius:var(--radius);border:1px solid var(--bd)">
-          <div class="fh" style="color:var(--ok)">✅ Keys live in session memory only — never written to disk or sent anywhere except the respective APIs.</div>
+        <div style="background:var(--bg3);padding:9px 12px;border-radius:var(--radius);border:1px solid var(--bd);font-size:11px;color:var(--t2);line-height:1.6">
+          🔒 Your PAT never leaves the browser session. All vault data is AES-256-GCM encrypted using a key derived from your PAT. Nothing is stored unencrypted.
         </div>
       </div>
     </div>
     <div class="mftr">
-      <button class="sbtn" id="s-back" style="display:none">← Back</button>
-      <button class="pbtn" id="s-next">Next →</button>
+      <button class="pbtn" id="s-next">🐼 Unlock PandaAI</button>
     </div>
   </div>
 </div>
@@ -683,38 +661,34 @@ ctxMenu.querySelectorAll('.ci').forEach(item => {
   });
 });
 
-// ── Setup modal ──────────────────────────────
-let mStep = 0;
-const mSteps = document.querySelectorAll('.mstep');
-const mDots  = document.querySelectorAll('.sdot2');
-function goStep(n) {
-  mSteps.forEach((s,i) => s.classList.toggle('cur', i === n));
-  mDots.forEach((d,i) => { d.classList.toggle('cur', i === n); d.classList.toggle('done', i < n); });
-  document.getElementById('s-back').style.display = n === 0 ? 'none' : '';
-  document.getElementById('s-next').textContent = n === mSteps.length - 1 ? '🐼 Launch PandaAI' : 'Next →';
-  mStep = n;
-}
+// ── Setup modal — single key (PAT) ───────────
 document.getElementById('s-next').addEventListener('click', () => {
-  if (mStep < mSteps.length - 1) { goStep(mStep + 1); return; }
-  // Final — collect and store in session memory
-  const pass = document.getElementById('s-pass').value;
-  const pass2 = document.getElementById('s-pass2').value;
-  if (pass !== pass2 && mStep === 0) { toast('Passphrases do not match', 'er'); goStep(0); return; }
+  const pat = document.getElementById('s-pat').value.trim();
+  if (!pat) { toast('GitHub PAT is required', 'er'); return; }
+  if (!pat.startsWith('ghp_') && !pat.startsWith('github_pat_') && pat.length < 20) {
+    toast('That does not look like a valid GitHub PAT', 'er'); return;
+  }
+  const groqKey = document.getElementById('s-groq').value.trim();
+  // PAT is both the auth token AND the encryption passphrase
   window.__setupData = {
-    passphrase: document.getElementById('s-pass').value,
-    pat: document.getElementById('s-pat').value,
-    repo: document.getElementById('s-repo').value,
-    groqKey: document.getElementById('s-groq').value
+    passphrase: pat,   // PAT → PBKDF2 → AES-256-GCM key
+    pat,
+    repo: 'PandaDesign-in/bot',
+    groqKey            // may be blank — loaded from vault if already saved
   };
+  sessionStorage.setItem('panda_pat', pat);
   document.getElementById('modal-setup').classList.add('hide');
-  sessionStorage.setItem('panda_setup_done', '1');
   launchApp();
 });
-document.getElementById('s-back').addEventListener('click', () => { if (mStep > 0) goStep(mStep - 1); });
+
+// Enter key submits
+document.getElementById('s-pat').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('s-next').click();
+});
 
 window.showSetup = function() {
   document.getElementById('modal-setup').classList.remove('hide');
-  goStep(0);
+  document.getElementById('s-pat').focus();
 };
 
 // ── Settings actions ──────────────────────────
@@ -730,12 +704,13 @@ document.getElementById('s-clr-cache').addEventListener('click', () => {
   }
 });
 document.getElementById('s-chg-groq').addEventListener('click', () => {
-  const k = prompt('Enter new Groq API key:');
-  if (k && k.trim()) { sessionStorage.setItem('panda_groq', k.trim()); toast('Groq key updated', 'ok'); }
+  const k = prompt('Enter new Groq API key (will be saved to vault):');
+  if (k && k.trim() && window.__pandaSync) {
+    window.__pandaSync.saveGroqKey(k.trim()).then(() => toast('Groq key updated in vault', 'ok'));
+  }
 });
 document.getElementById('s-chg-pat').addEventListener('click', () => {
-  const k = prompt('Enter new GitHub PAT:');
-  if (k && k.trim()) { sessionStorage.setItem('panda_pat', k.trim()); toast('PAT updated', 'ok'); }
+  toast('To change your PAT, reload the page and enter the new one', 'nfo', 5000);
 });
 
 // ── Viewer toolbar wiring (delegates to renderer) ──
@@ -816,27 +791,23 @@ async function launchApp() {
 }
 
 // ── Boot ─────────────────────────────────────
+// On every page load the user enters their PAT — that's it.
+// PAT lives in sessionStorage only (cleared on tab close).
 (function boot() {
-  const done = sessionStorage.getItem('panda_setup_done');
-  if (!done) {
+  const pat = sessionStorage.getItem('panda_pat');
+  if (!pat) {
+    // First visit or tab reopened — ask for PAT
     hideLoading();
     showSetup();
   } else {
-    // Re-use keys from session storage (user opened a new tab in same session)
+    // Same browser session — PAT still in sessionStorage
     window.__setupData = {
-      passphrase: sessionStorage.getItem('panda_pass') || '',
-      pat: sessionStorage.getItem('panda_pat') || '',
-      repo: sessionStorage.getItem('panda_repo') || 'PandaDesign-in/bot',
-      groqKey: sessionStorage.getItem('panda_groq') || ''
+      passphrase: pat,
+      pat,
+      repo: 'PandaDesign-in/bot',
+      groqKey: '' // will be loaded from vault by github-sync
     };
-    if (!window.__setupData.passphrase || !window.__setupData.groqKey) {
-      // Keys expired — re-setup
-      sessionStorage.clear();
-      hideLoading();
-      showSetup();
-    } else {
-      launchApp();
-    }
+    launchApp();
   }
 })();
 </script>
