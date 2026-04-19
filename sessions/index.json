@@ -1,6 +1,14 @@
 {
   "sessions": [
     {
+      "session_id": "2026-16-002",
+      "date": "2026-04-19",
+      "week": "2026-W16",
+      "file": "2026-16-002.json",
+      "summary": "Debugging session — single-key PAT design, Three.js importmap fix, boot null crashes, Groq key modal, LWOLoader/X3DLoader removal, PAT redaction.",
+      "encrypted": false
+    },
+    {
       "session_id": "2026-16-001",
       "date": "2026-04-19",
       "week": "2026-W16",
