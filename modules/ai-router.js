@@ -29,9 +29,7 @@ const MODELS = {
 
 // ── Init ─────────────────────────────────────
 async function init({ groqKey, persona }) {
-  _groqKey = groqKey || sessionStorage.getItem('panda_groq');
-  if (!_groqKey) throw new Error('Groq API key missing');
-
+  _groqKey = groqKey || sessionStorage.getItem('panda_groq') || '';
   _persona = persona || 'architecture';
 
   // Load charmap
@@ -47,7 +45,10 @@ async function init({ groqKey, persona }) {
   }
 
   // Welcome message
-  appendMsg('assistant', `🐼 PandaAI ready in ${_persona === 'architecture' ? '🏛️ Architecture' : '🛋️ Interior'} mode. Load a file or ask me anything.`);
+  const aiStatus = _groqKey
+    ? `🐼 PandaAI ready in ${_persona === 'architecture' ? '🏛️ Architecture' : '🛋️ Interior'} mode. Load a file or ask me anything.`
+    : `🐼 PandaAI loaded. ⚠️ No Groq key — AI features disabled. Add your key in ⚙️ Settings → Groq API Key.`;
+  appendMsg('assistant', aiStatus);
   console.log('[ai] Module ready — persona:', _persona);
 }
 
@@ -76,7 +77,11 @@ function getSystemPrompt(model) {
 
 // ── Chat (8B) ─────────────────────────────────
 async function chat(userMessage) {
-  if (!_groqKey) { toast('Groq API key not set', 'er'); return; }
+  if (!_groqKey) {
+    appendMsg('user', userMessage);
+    appendMsg('assistant', '⚠️ No Groq API key set. Go to ⚙️ Settings → Groq API Key and add yours (free at console.groq.com).');
+    return;
+  }
 
   appendMsg('user', userMessage);
   showTyping(true);

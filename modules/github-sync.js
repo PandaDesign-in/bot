@@ -22,57 +22,44 @@ const _queue = new Map();
 
 const GROQ_CONFIG_PATH = 'config/groq.enc';
 
-// ── Init ─────────────────────────────────────
-// PAT is the only credential — it authenticates GitHub AND was used
-// by crypto.js as the PBKDF2 passphrase to derive the AES key.
-// Groq key is saved encrypted in the vault on first run, retrieved on all subsequent ones.
-async function init({ pat, repo, groqKey }) {
+// ── connect — GitHub auth only (no Groq, no crash) ──
+// Called by launchApp. Groq key is handled separately.
+async function connect(pat, repo) {
   _pat  = pat;
   _repo = repo;
+  sessionStorage.setItem('panda_pat', pat);
 
-  sessionStorage.setItem('panda_pat',  pat);
-
-  // Verify GitHub access
   try {
     const me = await _api('GET', `repos/${repo}`);
-    console.log('[sync] Vault repo:', me.full_name);
+    console.log('[sync] Connected:', me.full_name);
     setSyncStatus('ok', 'Connected');
   } catch(e) {
     setSyncStatus('err', 'Vault error');
-    throw new Error('GitHub access failed — check your PAT and repo name. ' + e.message);
+    throw new Error('GitHub access failed — is your PAT valid and does it have repo scope? ' + e.message);
   }
 
-  // Load or save Groq key from/to vault
-  const resolvedGroq = await resolveGroqKey(groqKey);
-  if (resolvedGroq) {
-    sessionStorage.setItem('panda_groq', resolvedGroq);
-  } else {
-    setSyncStatus('err', 'No Groq key');
-    throw new Error('No Groq API key found. Enter it in the unlock screen.');
-  }
-
-  // Start auto-flush timer
   _flushTimer = setInterval(() => { if (_dirty) flush(); }, FLUSH_INTERVAL);
-  console.log('[sync] Ready — Groq key resolved, auto-flush every 60s');
+  console.log('[sync] Ready — auto-flush every 60s');
 }
 
-// ── Groq key: load from vault or save if provided ──
-async function resolveGroqKey(providedKey) {
-  // If user provided a key this session, save it to vault and return it
-  if (providedKey && providedKey.startsWith('gsk_')) {
-    await saveGroqKey(providedKey);
-    return providedKey;
-  }
-  // Try to load from vault
+// Keep init() as alias for backwards compat
+async function init({ pat, repo }) { return connect(pat, repo); }
+
+// ── Groq key — load from vault ────────────────
+async function loadGroqKey() {
   try {
     const { data } = await readEncrypted(GROQ_CONFIG_PATH);
-    if (data?.groqKey) return data.groqKey;
+    if (data?.groqKey) {
+      sessionStorage.setItem('panda_groq', data.groqKey);
+      return data.groqKey;
+    }
   } catch(e) {
-    if (!e.message.includes('404')) console.warn('[sync] Groq key vault read:', e.message);
+    if (!e.message?.includes('404')) console.warn('[sync] groq key read:', e.message);
   }
   return null;
 }
 
+// ── Groq key — save to vault ──────────────────
 async function saveGroqKey(key) {
   const sha = await getSha(GROQ_CONFIG_PATH);
   await writeEncrypted(GROQ_CONFIG_PATH, { groqKey: key }, sha, '[PandaAI] save groq config');
@@ -230,18 +217,12 @@ function destroy() {
 
 // ── Export ───────────────────────────────────
 window.__pandaSync = {
-  init,
-  readFile,
-  readEncrypted,
-  writeFile,
-  writeEncrypted,
-  writeBinaryEncrypted,
-  saveGroqKey,
-  queue,
-  flush,
-  listDir,
-  deleteFile,
-  getSha,
+  init, connect,
+  loadGroqKey, saveGroqKey,
+  readFile, readEncrypted,
+  writeFile, writeEncrypted, writeBinaryEncrypted,
+  queue, flush,
+  listDir, deleteFile, getSha,
   destroy,
   get repo() { return _repo; },
   get dirty() { return _dirty; }

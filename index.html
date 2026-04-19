@@ -9,6 +9,47 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="PandaAI" />
+
+  <!-- Three.js importmap — resolves bare 'three' specifier for all addons -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Three.js globals bootstrap — runs once, exposes window.THREE + loaders -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls }      from 'three/addons/controls/OrbitControls.js';
+    import { STLLoader }          from 'three/addons/loaders/STLLoader.js';
+    import { OBJLoader }          from 'three/addons/loaders/OBJLoader.js';
+    import { MTLLoader }          from 'three/addons/loaders/MTLLoader.js';
+    import { GLTFLoader }         from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader }          from 'three/addons/loaders/FBXLoader.js';
+    import { ColladaLoader }      from 'three/addons/loaders/ColladaLoader.js';
+    import { PLYLoader }          from 'three/addons/loaders/PLYLoader.js';
+    import { PCDLoader }          from 'three/addons/loaders/PCDLoader.js';
+    import { TDSLoader }          from 'three/addons/loaders/TDSLoader.js';
+    import { VRMLLoader }         from 'three/addons/loaders/VRMLLoader.js';
+    import { VTKLoader }          from 'three/addons/loaders/VTKLoader.js';
+    import { LWOLoader }          from 'three/addons/loaders/LWOLoader.js';
+    import { X3DLoader }          from 'three/addons/loaders/X3DLoader.js';
+    import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
+
+    window.THREE = THREE;
+    window.__TL  = {
+      OrbitControls, STLLoader, OBJLoader, MTLLoader, GLTFLoader,
+      FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
+      VRMLLoader, VTKLoader, LWOLoader, X3DLoader, VertexNormalsHelper
+    };
+    window.__threeReady = true;
+    document.dispatchEvent(new Event('three-ready'));
+    console.log('[three] globals ready');
+  </script>
+
   <style>
     :root {
       --topbar-h: 48px;
@@ -748,44 +789,59 @@ window.loadMod = function(path) {
 // ── App launch (after setup) ──────────────────
 async function launchApp() {
   try {
-    setLoadProgress(10, 'Initialising crypto…');
+    // Step 1 — crypto (required)
+    setLoadProgress(8, 'Initialising encryption…');
     await loadMod('modules/crypto.js');
-    if (window.__pandaCrypto) await window.__pandaCrypto.init(window.__setupData.passphrase);
+    await window.__pandaCrypto.init(window.__setupData.passphrase);
 
-    setLoadProgress(25, 'Connecting to vault…');
+    // Step 2 — GitHub vault (required)
+    setLoadProgress(20, 'Connecting to vault…');
     await loadMod('modules/github-sync.js');
-    if (window.__pandaSync) await window.__pandaSync.init({
-      pat: window.__setupData.pat,
-      repo: window.__setupData.repo,
-      groqKey: window.__setupData.groqKey
-    });
+    await window.__pandaSync.connect(window.__setupData.pat, window.__setupData.repo);
 
-    setLoadProgress(45, 'Loading file store…');
+    // Step 3 — file store (required for viewer)
+    setLoadProgress(38, 'Loading file vault…');
     await loadMod('modules/file-store.js');
-    if (window.__pandaFiles) await window.__pandaFiles.init();
+    await window.__pandaFiles.init();
 
-    setLoadProgress(65, 'Loading 3D renderer…');
+    // Step 4 — Three.js viewer (wait for globals if still loading)
+    setLoadProgress(55, 'Loading 3D viewer…');
+    if (!window.__threeReady) {
+      await new Promise(res => document.addEventListener('three-ready', res, { once: true }));
+    }
     await loadMod('modules/renderer.js');
-    if (window.__pandaRenderer) await window.__pandaRenderer.init('viewer-canvas');
+    await window.__pandaRenderer.init('viewer-canvas');
 
-    setLoadProgress(80, 'Loading AI router…');
+    // Step 5 — AI (optional — works without Groq key, just shows prompt)
+    setLoadProgress(75, 'Loading AI…');
     await loadMod('modules/ai-router.js');
-    if (window.__pandaAI) await window.__pandaAI.init({
-      groqKey: window.__setupData.groqKey,
-      persona: window.__persona
-    });
+    let groqKey = window.__setupData.groqKey ||
+                  sessionStorage.getItem('panda_groq') ||
+                  await window.__pandaSync.loadGroqKey();
+    if (!groqKey) {
+      // First run and no key provided — ask once
+      groqKey = prompt('Enter your Groq API key to enable AI.\n(Free at console.groq.com — gsk_…)\nLeave blank to skip for now:');
+      if (groqKey && groqKey.trim()) {
+        groqKey = groqKey.trim();
+        await window.__pandaSync.saveGroqKey(groqKey);
+      }
+    }
+    await window.__pandaAI.init({ groqKey: groqKey || '', persona: window.__persona });
+    if (!groqKey) toast('AI disabled — add your Groq key in ⚙️ Settings → Groq API Key', 'nfo', 7000);
 
-    setLoadProgress(92, 'Loading analysis engine…');
+    // Step 6 — analysis engine
+    setLoadProgress(90, 'Loading analysis engine…');
     await loadMod('modules/analysis.js');
-    if (window.__pandaAnalysis) await window.__pandaAnalysis.init();
+    window.__pandaAnalysis.init();
 
     setLoadProgress(100, 'Ready');
-    setTimeout(hideLoading, 400);
+    setTimeout(hideLoading, 350);
     toast('🐼 PandaAI ready', 'ok', 2500);
-    window.__setupData = null; // clear keys from memory once distributed
+    window.__setupData = null;
+
   } catch(e) {
     console.error('[boot]', e);
-    toast('Boot failed: ' + e.message, 'er', 8000);
+    toast('Boot error: ' + e.message, 'er', 10000);
     hideLoading();
   }
 }
