@@ -19,8 +19,14 @@ Every conversation session is logged as a raw dump to `/sessions/` in this repo 
 
 **During every work session you MUST:**
 - Log every user message and your response as-is, verbatim, no edits, no summarisation
+- **BEFORE logging, redact all secrets** — replace with `[REDACTED]`:
+  - GitHub PATs: `ghp_...` or `github_pat_...`
+  - Groq API keys: `gsk_...`
+  - Any token, bearer, or API key value
 - Flush to `/sessions/` at the end of the session
 - Update `/sessions/index.json` with the new session reference
+
+**NEVER log credentials in plaintext, ever — not even in encrypted sessions.**
 
 **Format:** Each session dump is a JSON file:
 ```json

@@ -292,8 +292,26 @@ function toast(msg, type, ms) {
 
 // ── Session logging ───────────────────────────
 const _sessionLog = [];
+
+// Patterns that must never appear in logs
+const _REDACT = [
+  /ghp_[A-Za-z0-9]{36}/g,           // GitHub classic PAT
+  /github_pat_[A-Za-z0-9_]{82}/g,   // GitHub fine-grained PAT
+  /gsk_[A-Za-z0-9]{52}/g,           // Groq API key
+  /gsk_[A-Za-z0-9]{48}/g,           // Groq key (shorter variant)
+  /Bearer\s+[A-Za-z0-9._\-]{20,}/g, // Authorization headers
+  /token\s+[A-Za-z0-9._\-]{20,}/gi, // Token prefix
+];
+
+function redact(text) {
+  if (!text || typeof text !== 'string') return text;
+  let out = text;
+  for (const rx of _REDACT) out = out.replace(rx, '[REDACTED]');
+  return out;
+}
+
 function logToSession(role, content) {
-  _sessionLog.push({ role, content, ts: new Date().toISOString() });
+  _sessionLog.push({ role, content: redact(content), ts: new Date().toISOString() });
   if (window.__pandaSync && _sessionLog.length % 10 === 0) flushSession();
 }
 
