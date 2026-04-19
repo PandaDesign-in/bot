@@ -178,9 +178,22 @@ async function load(meta, arrayBuffer) {
   }
 }
 
+// Explicit map — loader filename → window global it exports
+const _LOADER_KEYS = {
+  'loader-dxf':   '__dxfLoader',
+  'loader-ifc':   '__ifcLoader',
+  'loader-step':  '__stepLoader',
+  'loader-dwg':   '__dwgLoader',
+  'loader-3dm':   '__3dmLoader',
+  'loader-cloud': '__cloudLoader',
+  'loader-geo':   '__geoLoader',
+};
+
 async function loadExternal(loaderName, fn) {
-  const key = '__' + loaderName.replace(/-/g, '') + 'Loader';
+  const key = _LOADER_KEYS[loaderName];
+  if (!key) throw new Error('No key registered for loader: ' + loaderName);
   if (!window[key]) await window.loadMod('modules/loaders/' + loaderName + '.js');
+  if (!window[key]) throw new Error(loaderName + ' did not initialise (window.' + key + ' missing)');
   return fn(window[key]);
 }
 

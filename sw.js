@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v3';
+const VERSION = 'pandaai-v4';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
