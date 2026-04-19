@@ -45,7 +45,7 @@ const CDN_LIBS = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/TDSLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/VRMLLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/VTKLoader.js',
-  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/LWOLoader.js',
+  // LWOLoader removed from Three.js r157 — skip
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/FirstPersonControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/helpers/VertexNormalsHelper.js',

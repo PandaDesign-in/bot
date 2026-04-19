@@ -32,7 +32,10 @@ let _fpsFrames = 0, _fpsLast = 0;
 async function init(canvasId) {
   // Wait for Three.js globals if still loading
   if (!window.__threeReady) {
-    await new Promise(res => document.addEventListener('three-ready', res, { once: true }));
+    await Promise.race([
+      new Promise(res => document.addEventListener('three-ready', res, { once: true })),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Three.js load timeout')), 15000))
+    ]);
   }
   T  = window.THREE;
   TL = window.__TL;
@@ -176,7 +179,8 @@ async function loadNative(meta, buf) {
     stl:'STLLoader', obj:'OBJLoader', gltf:'GLTFLoader', glb:'GLTFLoader',
     fbx:'FBXLoader', dae:'ColladaLoader', '3ds':'TDSLoader', ply:'PLYLoader',
     pcd:'PCDLoader', wrl:'VRMLLoader', vrml:'VRMLLoader', vtk:'VTKLoader',
-    lwo:'LWOLoader', x3d:'X3DLoader', x3db:'X3DLoader', off:'OBJLoader'
+    off:'OBJLoader'
+    // lwo: LWOLoader removed in r157 | x3d: X3DLoader removed in r152
   };
   const clsName = map[ext];
   if (!clsName || !TL[clsName]) throw new Error('No built-in loader for .' + ext);

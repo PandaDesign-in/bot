@@ -35,15 +35,14 @@
     import { TDSLoader }          from 'three/addons/loaders/TDSLoader.js';
     import { VRMLLoader }         from 'three/addons/loaders/VRMLLoader.js';
     import { VTKLoader }          from 'three/addons/loaders/VTKLoader.js';
-    import { LWOLoader }          from 'three/addons/loaders/LWOLoader.js';
-    import { X3DLoader }          from 'three/addons/loaders/X3DLoader.js';
     import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
+    // LWOLoader removed in r157, X3DLoader removed in r152 — not available in r160
 
     window.THREE = THREE;
     window.__TL  = {
       OrbitControls, STLLoader, OBJLoader, MTLLoader, GLTFLoader,
       FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
-      VRMLLoader, VTKLoader, LWOLoader, X3DLoader, VertexNormalsHelper
+      VRMLLoader, VTKLoader, VertexNormalsHelper
     };
     window.__threeReady = true;
     document.dispatchEvent(new Event('three-ready'));
@@ -873,7 +872,12 @@ async function launchApp() {
 
     setLoadProgress(58, 'Loading 3D viewer…');
     if (!window.__threeReady) {
-      await new Promise(res => document.addEventListener('three-ready', res, { once: true }));
+      await Promise.race([
+        new Promise(res => document.addEventListener('three-ready', res, { once: true })),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(
+          'Three.js failed to load from CDN — check network or try a hard refresh (Ctrl+Shift+R)'
+        )), 15000))
+      ]);
     }
     await loadMod('modules/renderer.js');
     await window.__pandaRenderer.init('viewer-canvas');
