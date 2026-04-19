@@ -93,3 +93,142 @@ The system is built with a **strict security-first and GitHub-only persistence m
 ---
 
 ## Repository Structure
+/aaw-root
+│
+├── /app
+│ ├── index.html
+│ ├── app.js
+│ ├── runtime/
+│ ├── crypto/
+│ ├── ai/
+│ ├── cad/
+│ ├── speech/
+│ ├── github/
+│ └── ui/
+│
+├── /sessions
+│ └── /YYYY-WW/
+│
+├── /knowledge
+│
+├── /plugins
+│
+├── /config
+│
+└── /docs
+
+
+---
+
+## Authentication
+
+- Uses **GitHub Personal Access Token (PAT)**
+- Stored client-side only
+- Recommended scopes:
+  - `repo`
+  - `contents:write`
+
+---
+
+## Encryption Model
+
+- Algorithm: **AES-256-GCM**
+- Key derivation: PBKDF2
+- Encryption occurs:
+  - Before GitHub push
+  - Within browser runtime only
+
+---
+
+## Session Logging Format
+
+Each session is stored as an encrypted JSON object:
+
+```json
+{
+  "session_id": "uuid",
+  "start_time": "ISO8601",
+  "messages": [],
+  "artifacts": {},
+  "speech": {}
+}
+GitHub Sync Model
+Interval: every 60 seconds
+Batched commits
+Append-only updates
+Weekly folder structure
+
+Commit format:
+
+[AUTOLOG] session <id> update <timestamp>
+AI Model Configuration
+
+/app/ai/models.json
+
+{
+  "default": "groq-8b",
+  "heavy": "groq-70b",
+  "speech": "whisper"
+}
+Persona Configuration
+
+/app/ai/charmap.json
+
+Defines system behavior, capabilities, and tone.
+
+Security Model
+Layer	Mechanism
+Encryption	AES-256-GCM
+Key Derivation	PBKDF2
+Transport	HTTPS
+Storage	Encrypted blobs
+Access	GitHub PAT
+Hard Constraints
+No plaintext storage outside runtime
+No external database
+No server-side decryption
+GitHub is the only persistence layer
+Extensibility
+
+AAW is designed to scale across:
+
+AI
+Add new model adapters
+Local LLM integration (GGUF)
+CAD
+Plugin-based generators
+BIM integrations (future)
+Knowledge
+Expandable datasets
+Indexed retrieval systems
+Collaboration
+Future encrypted multi-user workflows
+Development Targets
+
+AI agents (Codex, etc.) should be able to:
+
+Scaffold repository structure
+Implement encryption module
+Build GitHub sync system
+Implement AI orchestration
+Create UI (chat + CAD preview)
+Add session logging engine
+Enable plugin architecture
+Future Roadmap
+Local GPU inference support
+Parametric BIM pipelines
+Autonomous design agents
+Continuous learning from session logs
+License
+
+Define based on deployment preference (recommended: MIT / Apache 2.0 for flexibility)
+
+Notes
+
+This system is intentionally designed to:
+
+Maximize data control
+Ensure auditability
+Enable reproducible AI-assisted workflows
+
+No component should violate the core constraint of GitHub-only encrypted persistence.
