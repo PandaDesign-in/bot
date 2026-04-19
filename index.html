@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🐼 PandaAI</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="PandaAI" />
+  <style>
+    :root {
+      --topbar-h: 48px;
+      --filetree-w: 240px;
+      --chat-w: 320px;
+      --analysis-h: 260px;
+      --toolbar-h: 40px;
+      --statusbar-h: 24px;
+      --radius: 6px;
+      --radius-sm: 4px;
+      --trans: 0.18s ease;
+    }
+    [data-theme="dark"] {
+      --bg0: #0a0a0a; --bg1: #111; --bg2: #181818; --bg3: #202020;
+      --bgh: #2a2a2a; --bd: #2c2c2c; --bds: #404040;
+      --t0: #ebebeb; --t1: #aaa; --t2: #555;
+      --acc: #4a9eff; --acc-d: rgba(74,158,255,0.15);
+      --int: #e8a87c; --int-d: rgba(232,168,124,0.15);
+      --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+      --shad: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    [data-theme="light"] {
+      --bg0: #efefef; --bg1: #fff; --bg2: #f8f8f8; --bg3: #eee;
+      --bgh: #e4e4e4; --bd: #d8d8d8; --bds: #bbb;
+      --t0: #1a1a1a; --t1: #555; --t2: #999;
+      --acc: #1a6fd4; --acc-d: rgba(26,111,212,0.12);
+      --int: #c4722a; --int-d: rgba(196,114,42,0.12);
+      --ok: #16a34a; --warn: #d97706; --err: #dc2626;
+      --shad: 0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; background: var(--bg0); color: var(--t0); user-select: none; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bds); border-radius: 3px; }
+
+    /* ── APP SHELL ── */
+    #app { display: grid; grid-template-rows: var(--topbar-h) 1fr var(--analysis-h); height: 100vh; width: 100vw; overflow: hidden; }
+    #workspace { display: grid; grid-template-columns: var(--filetree-w) 1fr var(--chat-w); overflow: hidden; border-top: 1px solid var(--bd); }
+
+    /* ── TOPBAR ── */
+    #topbar { display: flex; align-items: center; padding: 0 12px; gap: 8px; background: var(--bg1); border-bottom: 1px solid var(--bd); z-index: 100; }
+    .logo { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15px; letter-spacing: -.3px; min-width: 110px; }
+    .logo-emoji { font-size: 22px; }
+    .spacer { flex: 1; }
+
+    .persona-toggle { display: flex; background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius); overflow: hidden; }
+    .persona-toggle button { padding: 5px 13px; font-size: 12px; font-weight: 500; background: none; border: none; color: var(--t1); cursor: pointer; transition: all var(--trans); white-space: nowrap; }
+    .persona-toggle button:hover:not(.active) { background: var(--bgh); color: var(--t0); }
+    .persona-toggle button.active[data-persona="architecture"] { background: var(--acc); color: #fff; }
+    .persona-toggle button.active[data-persona="interior"] { background: var(--int); color: #fff; }
+
+    .ibtn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--t1); cursor: pointer; font-size: 15px; transition: all var(--trans); flex-shrink: 0; }
+    .ibtn:hover { background: var(--bgh); border-color: var(--bd); color: var(--t0); }
+
+    .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--t2); }
+    .sdot.on { background: var(--ok); }
+    .sdot.busy { background: var(--warn); animation: blink 1s infinite; }
+    .sdot.err { background: var(--err); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── FILE TREE ── */
+    #panel-files { background: var(--bg1); border-right: 1px solid var(--bd); display: flex; flex-direction: column; overflow: hidden; }
+    .ph { display: flex; align-items: center; padding: 0 10px; height: 34px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); border-bottom: 1px solid var(--bd); gap: 5px; flex-shrink: 0; }
+    .ph .ibtn { width: 22px; height: 22px; font-size: 12px; }
+    #file-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+    .tree-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 7px; color: var(--t2); font-size: 12px; padding: 16px; text-align: center; }
+    .tree-empty-icon { font-size: 30px; opacity: .35; }
+    .titem { display: flex; align-items: center; padding: 4px 8px; gap: 6px; cursor: pointer; border-radius: var(--radius-sm); margin: 1px 4px; color: var(--t0); font-size: 12.5px; transition: background var(--trans); white-space: nowrap; overflow: hidden; }
+    .titem:hover { background: var(--bgh); }
+    .titem.sel { background: var(--acc-d); color: var(--acc); }
+    .titem.open { background: var(--acc); color: #fff; }
+    .titem .ti { font-size: 13px; flex-shrink: 0; }
+    .titem .tn { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .titem .tx { font-size: 10px; color: var(--t2); background: var(--bg3); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; text-transform: uppercase; }
+    .titem.sel .tx { color: var(--acc); background: var(--acc-d); }
+    .titem.open .tx { color: #fff; background: rgba(255,255,255,.2); }
+    .titem.folder { font-weight: 600; color: var(--t1); }
+    .titem.indent { padding-left: 20px; }
+    #files-dz { border: 1.5px dashed var(--bds); border-radius: var(--radius); margin: 7px; padding: 10px 8px; text-align: center; font-size: 11px; color: var(--t2); cursor: pointer; transition: all var(--trans); flex-shrink: 0; line-height: 1.6; }
+    #files-dz:hover, #files-dz.over { border-color: var(--acc); color: var(--acc); background: var(--acc-d); }
+
+    /* ── VIEWER ── */
+    #panel-viewer { display: flex; flex-direction: column; background: var(--bg0); position: relative; overflow: hidden; }
+    #vtoolbar { display: flex; align-items: center; height: var(--toolbar-h); padding: 0 6px; gap: 1px; background: var(--bg2); border-bottom: 1px solid var(--bd); flex-shrink: 0; overflow-x: auto; }
+    .tbtn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--t1); cursor: pointer; font-size: 13px; transition: all var(--trans); flex-shrink: 0; position: relative; }
+    .tbtn:hover { background: var(--bgh); border-color: var(--bd); color: var(--t0); }
+    .tbtn.on { background: var(--acc-d); border-color: var(--acc); color: var(--acc); }
+    .tbtn[title]:hover::after { content: attr(title); position: absolute; bottom: -26px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--bd); color: var(--t0); font-size: 10.5px; padding: 2px 6px; border-radius: 3px; white-space: nowrap; z-index: 999; pointer-events: none; }
+    .tsep { width: 1px; height: 18px; background: var(--bd); margin: 0 3px; flex-shrink: 0; }
+    #viewer-wrap { flex: 1; position: relative; overflow: hidden; }
+    #viewer-canvas { display: block; width: 100%; height: 100%; }
+    #viewer-drop { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--t2); transition: all var(--trans); pointer-events: none; }
+    #viewer-drop.has-file { opacity: 0; }
+    #viewer-drop.dragging { pointer-events: none; background: rgba(74,158,255,.04); border: 2px dashed var(--acc); opacity: 1 !important; }
+    #viewer-drop .di { font-size: 44px; opacity: .25; }
+    #viewer-drop .dt { font-size: 14px; font-weight: 500; opacity: .45; }
+    #viewer-drop .ds { font-size: 11px; opacity: .3; max-width: 260px; text-align: center; line-height: 1.6; }
+    #vstatbar { height: var(--statusbar-h); display: flex; align-items: center; padding: 0 10px; gap: 14px; background: var(--bg2); border-top: 1px solid var(--bd); font-size: 10.5px; color: var(--t2); flex-shrink: 0; }
+    #vstatbar span { display: flex; align-items: center; gap: 3px; }
+
+    /* ── CHAT ── */
+    #panel-chat { background: var(--bg1); border-left: 1px solid var(--bd); display: flex; flex-direction: column; overflow: hidden; }
+    #chat-msgs { flex: 1; overflow-y: auto; padding: 10px 9px; display: flex; flex-direction: column; gap: 8px; }
+    .chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 7px; color: var(--t2); font-size: 12px; text-align: center; padding: 16px; }
+    .msg { max-width: 90%; padding: 8px 10px; border-radius: var(--radius); font-size: 12.5px; line-height: 1.55; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: var(--acc); color: #fff; border-bottom-right-radius: 2px; }
+    .msg.ai { align-self: flex-start; background: var(--bg3); color: var(--t0); border-bottom-left-radius: 2px; }
+    .msg.sys { align-self: center; background: transparent; color: var(--t2); font-size: 11px; font-style: italic; padding: 3px 6px; }
+    .msg-time { font-size: 10px; opacity: .45; margin-top: 3px; }
+    .typing { align-self: flex-start; background: var(--bg3); padding: 10px 12px; border-radius: var(--radius); border-bottom-left-radius: 2px; }
+    .tdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--t2); margin: 0 2px; animation: td 1.2s infinite; }
+    .tdot:nth-child(2){animation-delay:.2s} .tdot:nth-child(3){animation-delay:.4s}
+    @keyframes td { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-4px);opacity:1} }
+    #chat-model-row { display: flex; align-items: center; padding: 3px 9px; gap: 5px; font-size: 10.5px; color: var(--t2); border-top: 1px solid var(--bd); background: var(--bg2); flex-shrink: 0; }
+    .mpill { background: var(--bg3); border: 1px solid var(--bd); padding: 1px 7px; border-radius: 10px; font-size: 10px; color: var(--t1); }
+    .mpill.a70 { background: var(--acc-d); border-color: var(--acc); color: var(--acc); }
+    #chat-input-row { display: flex; align-items: flex-end; padding: 7px; gap: 5px; border-top: 1px solid var(--bd); background: var(--bg2); flex-shrink: 0; }
+    #chat-in { flex: 1; background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius); padding: 7px 9px; color: var(--t0); font-size: 13px; font-family: inherit; resize: none; min-height: 34px; max-height: 110px; outline: none; transition: border-color var(--trans); line-height: 1.4; }
+    #chat-in:focus { border-color: var(--acc); }
+    #chat-in::placeholder { color: var(--t2); }
+    #btn-mic { width: 34px; height: 34px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--bd); color: var(--t1); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--trans); flex-shrink: 0; }
+    #btn-mic:hover { color: var(--acc); border-color: var(--acc); }
+    #btn-mic.rec { background: var(--err); border-color: var(--err); color: #fff; animation: blink 1s infinite; }
+    #btn-send { width: 34px; height: 34px; border-radius: var(--radius); background: var(--acc); border: none; color: #fff; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: filter var(--trans); flex-shrink: 0; }
+    #btn-send:hover { filter: brightness(1.15); }
+    #btn-send:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+
+    /* ── ANALYSIS BOTTOM ── */
+    #panel-analysis { background: var(--bg1); border-top: 1px solid var(--bd); display: flex; flex-direction: column; overflow: hidden; }
+    #analysis-hdr { display: flex; align-items: center; padding: 0 12px; height: 34px; gap: 8px; border-bottom: 1px solid var(--bd); background: var(--bg2); flex-shrink: 0; }
+    #analysis-hdr .at { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); }
+    #analysis-ptag { font-size: 11px; color: var(--acc); }
+    #btn-save-rep { padding: 3px 10px; border-radius: var(--radius-sm); background: var(--bg3); border: 1px solid var(--bd); color: var(--t1); font-size: 11px; cursor: pointer; transition: all var(--trans); }
+    #btn-save-rep:hover { border-color: var(--acc); color: var(--acc); }
+    #btn-save-rep:disabled { opacity: .4; cursor: not-allowed; }
+    #btn-analyse { padding: 4px 12px; border-radius: var(--radius-sm); background: var(--acc); border: none; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: filter var(--trans); }
+    #btn-analyse:hover { filter: brightness(1.15); }
+    #btn-analyse:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+    #btn-analyse.int { background: var(--int); }
+    #analysis-body { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 12.5px; line-height: 1.65; color: var(--t0); }
+    .aempty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--t2); font-size: 12px; font-style: italic; }
+    #analysis-body h3 { font-size: 12.5px; color: var(--acc); margin: 10px 0 5px; font-weight: 700; }
+    #analysis-body h3:first-child { margin-top: 0; }
+    #analysis-body p { margin-bottom: 5px; }
+    #analysis-body ul { padding-left: 16px; margin-bottom: 5px; }
+    #analysis-body li { margin-bottom: 2px; }
+    #analysis-body code { background: var(--bg3); padding: 1px 4px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 11px; }
+    .fw { color: var(--warn); } .fe { color: var(--err); } .fo { color: var(--ok); }
+
+    /* ── SETUP MODAL ── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.78); display: flex; align-items: center; justify-content: center; z-index: 9000; backdrop-filter: blur(4px); }
+    .overlay.hide { display: none; }
+    .mbox { background: var(--bg2); border: 1px solid var(--bds); border-radius: 10px; width: 460px; max-width: 95vw; box-shadow: var(--shad); overflow: hidden; }
+    .mhdr { padding: 20px 24px 14px; display: flex; flex-direction: column; align-items: center; gap: 5px; border-bottom: 1px solid var(--bd); }
+    .mhdr .mlogo { font-size: 46px; }
+    .mhdr .mtitle { font-size: 19px; font-weight: 700; }
+    .mhdr .msub { font-size: 12px; color: var(--t2); text-align: center; line-height: 1.5; }
+    .sdots { display: flex; justify-content: center; gap: 6px; padding: 6px 0 0; }
+    .sdot2 { width: 6px; height: 6px; border-radius: 50%; background: var(--bds); transition: all var(--trans); }
+    .sdot2.cur { background: var(--acc); transform: scale(1.3); }
+    .sdot2.done { background: var(--ok); }
+    .mbody { padding: 18px 24px; }
+    .mstep { display: none; flex-direction: column; gap: 13px; }
+    .mstep.cur { display: flex; }
+    .fg { display: flex; flex-direction: column; gap: 4px; }
+    .fl { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .fh { font-size: 11px; color: var(--t2); line-height: 1.5; }
+    .fi { background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius); padding: 8px 11px; color: var(--t0); font-size: 13px; font-family: inherit; outline: none; transition: border-color var(--trans); width: 100%; }
+    .fi:focus { border-color: var(--acc); }
+    .fi::placeholder { color: var(--t2); }
+    .fi[type="password"] { letter-spacing: 2px; }
+    .mftr { padding: 12px 24px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--bd); }
+    .pbtn { padding: 8px 18px; border-radius: var(--radius); background: var(--acc); border: none; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter var(--trans); }
+    .pbtn:hover { filter: brightness(1.15); }
+    .sbtn { padding: 8px 14px; border-radius: var(--radius); background: var(--bg3); border: 1px solid var(--bd); color: var(--t1); font-size: 13px; cursor: pointer; transition: all var(--trans); }
+    .sbtn:hover { border-color: var(--bds); color: var(--t0); }
+
+    /* ── LOADING OVERLAY ── */
+    #loading { position: fixed; inset: 0; background: var(--bg0); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 9999; transition: opacity .5s; }
+    #loading.hide { opacity: 0; pointer-events: none; }
+    #loading .ll { font-size: 60px; }
+    #loading .lt { font-size: 22px; font-weight: 700; }
+    #loading .ls { font-size: 12px; color: var(--t2); }
+    .pbar-wrap { width: 280px; height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .pbar { height: 100%; background: var(--acc); border-radius: 2px; width: 0%; transition: width .3s ease; }
+    #load-lbl { font-size: 11px; color: var(--t2); min-width: 280px; text-align: center; }
+
+    /* ── TOAST ── */
+    #toasts { position: fixed; bottom: calc(var(--analysis-h) + 10px); right: calc(var(--chat-w) + 10px); display: flex; flex-direction: column; gap: 5px; z-index: 8000; pointer-events: none; }
+    .toast { background: var(--bg3); border: 1px solid var(--bds); border-radius: var(--radius); padding: 7px 12px; font-size: 12px; color: var(--t0); animation: tin .2s ease; max-width: 260px; }
+    .toast.ok { border-left: 3px solid var(--ok); }
+    .toast.er { border-left: 3px solid var(--err); }
+    .toast.nfo { border-left: 3px solid var(--acc); }
+    @keyframes tin { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── CONTEXT MENU ── */
+    #ctxmenu { position: fixed; background: var(--bg3); border: 1px solid var(--bds); border-radius: var(--radius); box-shadow: var(--shad); z-index: 7000; min-width: 155px; overflow: hidden; display: none; }
+    .ci { padding: 6px 13px; font-size: 12.5px; color: var(--t0); cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background var(--trans); }
+    .ci:hover { background: var(--bgh); }
+    .ci.del { color: var(--err); }
+    .ci.del:hover { background: rgba(248,113,113,.1); }
+    .csep { height: 1px; background: var(--bd); margin: 3px 0; }
+
+    /* ── SETTINGS SIDE PANEL ── */
+    #settings { position: fixed; top: var(--topbar-h); right: 0; width: 320px; height: calc(100vh - var(--topbar-h)); background: var(--bg2); border-left: 1px solid var(--bds); box-shadow: var(--shad); z-index: 6000; transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column; overflow: hidden; }
+    #settings.open { transform: translateX(0); }
+    .shdr { padding: 14px 16px; font-weight: 700; font-size: 13.5px; border-bottom: 1px solid var(--bd); display: flex; align-items: center; justify-content: space-between; }
+    .sbody { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 18px; }
+    .stitle { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); margin-bottom: 7px; }
+    .srow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .slbl { font-size: 12.5px; }
+    .shnt { font-size: 11px; color: var(--t2); margin-top: 1px; }
+  </style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="loading">
+  <div class="ll">🐼</div>
+  <div class="lt">PandaAI</div>
+  <div class="ls">Downloading — this happens once</div>
+  <div class="pbar-wrap"><div class="pbar" id="pbar"></div></div>
+  <div id="load-lbl">Preparing…</div>
+</div>
+
+<!-- SETUP MODAL -->
+<div class="overlay hide" id="modal-setup">
+  <div class="mbox">
+    <div class="mhdr">
+      <div class="mlogo">🐼</div>
+      <div class="mtitle">Welcome to PandaAI</div>
+      <div class="msub">Your intelligent design companion.<br>30-second setup, then you're in.</div>
+      <div class="sdots">
+        <div class="sdot2 cur" data-s="0"></div>
+        <div class="sdot2" data-s="1"></div>
+        <div class="sdot2" data-s="2"></div>
+      </div>
+    </div>
+    <div class="mbody">
+      <!-- Step 0: passphrase -->
+      <div class="mstep cur" id="mstep-0">
+        <div class="fg">
+          <div class="fl">Encryption Passphrase</div>
+          <div class="fh">Encrypts all your files and sessions. Never leaves your browser. Entered fresh each session — nothing is stored persistently.</div>
+          <input type="password" class="fi" id="s-pass" placeholder="Choose a strong passphrase…" autocomplete="new-password" />
+        </div>
+        <div class="fg">
+          <div class="fl">Confirm Passphrase</div>
+          <input type="password" class="fi" id="s-pass2" placeholder="Repeat passphrase…" autocomplete="new-password" />
+        </div>
+      </div>
+      <!-- Step 1: GitHub PAT -->
+      <div class="mstep" id="mstep-1">
+        <div class="fg">
+          <div class="fl">GitHub Personal Access Token</div>
+          <div class="fh">Reads and writes your encrypted vault to the repo.<br>Required scope: <strong>repo</strong>.<br>Generate: GitHub → Settings → Developer settings → PAT.</div>
+          <input type="password" class="fi" id="s-pat" placeholder="ghp_…" autocomplete="off" />
+        </div>
+        <div class="fg">
+          <div class="fl">Repository (owner/repo)</div>
+          <input type="text" class="fi" id="s-repo" value="PandaDesign-in/bot" autocomplete="off" />
+        </div>
+      </div>
+      <!-- Step 2: Groq key -->
+      <div class="mstep" id="mstep-2">
+        <div class="fg">
+          <div class="fl">Groq API Key</div>
+          <div class="fh">Powers AI chat (8B), file analysis (70B), and voice (Whisper).<br>Free at: <strong>console.groq.com</strong></div>
+          <input type="password" class="fi" id="s-groq" placeholder="gsk_…" autocomplete="off" />
+        </div>
+        <div class="fg" style="background:var(--bg3);padding:10px 12px;border-radius:var(--radius);border:1px solid var(--bd)">
+          <div class="fh" style="color:var(--ok)">✅ Keys live in session memory only — never written to disk or sent anywhere except the respective APIs.</div>
+        </div>
+      </div>
+    </div>
+    <div class="mftr">
+      <button class="sbtn" id="s-back" style="display:none">← Back</button>
+      <button class="pbtn" id="s-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctxmenu">
+  <div class="ci" data-a="open">📂 Open in Viewer</div>
+  <div class="ci" data-a="analyse">🔍 Analyse with AI</div>
+  <div class="csep"></div>
+  <div class="ci" data-a="rename">✏️ Rename</div>
+  <div class="ci" data-a="folder">📁 Move to Folder</div>
+  <div class="csep"></div>
+  <div class="ci del" data-a="delete">🗑️ Delete</div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="settings">
+  <div class="shdr">
+    <span>⚙️ Settings</span>
+    <button class="ibtn" id="btn-cls-settings">✕</button>
+  </div>
+  <div class="sbody">
+    <div>
+      <div class="stitle">Appearance</div>
+      <div class="srow">
+        <div><div class="slbl">Theme</div><div class="shnt">Dark or light</div></div>
+        <button class="ibtn" id="s-theme-btn">🌙</button>
+      </div>
+    </div>
+    <div>
+      <div class="stitle">API Keys</div>
+      <div class="srow">
+        <div><div class="slbl">Groq API Key</div><div class="shnt">Stored in session memory</div></div>
+        <button class="sbtn" id="s-chg-groq" style="font-size:11px;padding:3px 9px">Change</button>
+      </div>
+      <div class="srow" style="margin-top:8px">
+        <div><div class="slbl">GitHub PAT</div><div class="shnt">Stored in session memory</div></div>
+        <button class="sbtn" id="s-chg-pat" style="font-size:11px;padding:3px 9px">Change</button>
+      </div>
+    </div>
+    <div>
+      <div class="stitle">Vault</div>
+      <div class="srow">
+        <div><div class="slbl">Sync Now</div><div class="shnt">Push session to GitHub</div></div>
+        <button class="sbtn" id="s-sync" style="font-size:11px;padding:3px 9px">Sync</button>
+      </div>
+      <div class="srow" style="margin-top:8px">
+        <div><div class="slbl">Clear Module Cache</div><div class="shnt">Re-downloads on next load</div></div>
+        <button class="sbtn" id="s-clr-cache" style="font-size:11px;padding:3px 9px;color:var(--warn)">Clear</button>
+      </div>
+    </div>
+    <div>
+      <div class="stitle">About</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.8">
+        🐼 PandaAI v2.0<br>
+        Single-user · Vanilla JS · No server<br>
+        GitHub vault · Groq AI · AES-256-GCM<br>
+        <span style="font-size:11px">Nothing leaves your browser unencrypted.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toasts"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <div class="logo"><span class="logo-emoji">🐼</span><span>PandaAI</span></div>
+    <div class="persona-toggle">
+      <button data-persona="architecture" class="active" id="pbtn-arch">🏛️ Architecture</button>
+      <button data-persona="interior" id="pbtn-int">🛋️ Interior</button>
+    </div>
+    <div class="spacer"></div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)">
+      <span id="sync-lbl">Not synced</span>
+      <div class="sdot" id="sync-dot"></div>
+    </div>
+    <button class="ibtn" id="btn-theme" title="Toggle theme">🌙</button>
+    <button class="ibtn" id="btn-settings" title="Settings">⚙️</button>
+  </header>
+
+  <!-- WORKSPACE -->
+  <div id="workspace">
+
+    <!-- LEFT: File Tree -->
+    <aside id="panel-files">
+      <div class="ph">
+        <span>Files</span>
+        <div class="spacer"></div>
+        <button class="ibtn" id="btn-new-folder" title="New folder">📁</button>
+        <button class="ibtn" id="btn-upload" title="Upload files">＋</button>
+      </div>
+      <div id="file-tree">
+        <div class="tree-empty" id="tree-empty">
+          <div class="tree-empty-icon">📂</div>
+          <div>No files yet</div>
+          <div style="font-size:11px;opacity:.55">Drop files below or click ＋</div>
+        </div>
+      </div>
+      <div id="files-dz">
+        ↓ Drop CAD / 3D files here
+        <div style="font-size:10px;margin-top:2px;opacity:.55">STL · OBJ · IFC · DWG · GLTF · DXF · +50 more</div>
+      </div>
+    </aside>
+
+    <!-- CENTER: Viewer -->
+    <main id="panel-viewer">
+      <div id="vtoolbar">
+        <!-- Navigation -->
+        <button class="tbtn on" id="t-orbit" title="Orbit">⟳</button>
+        <button class="tbtn" id="t-pan" title="Pan">✥</button>
+        <button class="tbtn" id="t-fit" title="Zoom to fit">⊡</button>
+        <div class="tsep"></div>
+        <!-- Analysis -->
+        <button class="tbtn" id="t-measure" title="Measure distance">📏</button>
+        <button class="tbtn" id="t-section" title="Section cut">✂️</button>
+        <button class="tbtn" id="t-explode" title="Explode view">💥</button>
+        <div class="tsep"></div>
+        <!-- Display -->
+        <button class="tbtn" id="t-wire" title="Wireframe">⬡</button>
+        <button class="tbtn" id="t-xray" title="X-Ray transparent">◈</button>
+        <button class="tbtn" id="t-normals" title="Face normals">↗</button>
+        <div class="tsep"></div>
+        <!-- Views -->
+        <button class="tbtn" id="t-top" title="Top view">⬆</button>
+        <button class="tbtn" id="t-front" title="Front view">⬛</button>
+        <button class="tbtn" id="t-side" title="Side view">▶</button>
+        <button class="tbtn" id="t-iso" title="Isometric">⬡</button>
+        <div class="tsep"></div>
+        <!-- Modes -->
+        <button class="tbtn" id="t-walk" title="Walk mode (WASD)">🚶</button>
+        <button class="tbtn" id="t-turn" title="Turntable auto-rotate">🔄</button>
+        <div class="tsep"></div>
+        <!-- Toggles -->
+        <button class="tbtn on" id="t-grid" title="Grid">⊞</button>
+        <button class="tbtn" id="t-shadow" title="Shadows">☀️</button>
+        <button class="tbtn" id="t-layers" title="Layer visibility">🗂</button>
+        <button class="tbtn" id="t-4view" title="4-viewport">⊟</button>
+        <div class="tsep"></div>
+        <button class="tbtn" id="t-shot" title="Screenshot">📷</button>
+      </div>
+
+      <div id="viewer-wrap">
+        <canvas id="viewer-canvas"></canvas>
+        <div id="viewer-drop">
+          <div class="di">🧊</div>
+          <div class="dt">Drop a file to visualise</div>
+          <div class="ds">STL · OBJ · GLTF/GLB · FBX · IFC · DWG · DXF · STEP · 3DM · LAS/LAZ · and 50+ more</div>
+        </div>
+      </div>
+
+      <div id="vstatbar">
+        <span id="stat-file">No file loaded</span>
+        <span id="stat-verts">—</span>
+        <span id="stat-faces">—</span>
+        <span id="stat-dims">—</span>
+        <span id="stat-fmt">—</span>
+        <div style="flex:1"></div>
+        <span id="stat-fps">—</span>
+      </div>
+    </main>
+
+    <!-- RIGHT: Chat -->
+    <aside id="panel-chat">
+      <div class="ph">
+        <span>Chat</span>
+        <div class="spacer"></div>
+        <button class="ibtn" id="btn-clr-chat" title="Clear chat">🗑</button>
+      </div>
+      <div id="chat-msgs">
+        <div class="chat-empty" id="chat-empty">
+          <div style="font-size:28px;opacity:.35">💬</div>
+          <div>Ask PandaAI anything</div>
+          <div style="font-size:11px;opacity:.55">About your model, design,<br>codes, or anything else</div>
+        </div>
+      </div>
+      <div id="chat-model-row">
+        <span>Model:</span>
+        <span class="mpill" id="pill-8b">8B</span>
+        <span class="mpill" id="pill-70b">70B</span>
+        <div style="flex:1"></div>
+        <span id="ctx-hint" style="font-size:10px;color:var(--t2)"></span>
+      </div>
+      <div id="chat-input-row">
+        <textarea id="chat-in" placeholder="Ask about your model or design…" rows="1" maxlength="4000"></textarea>
+        <button id="btn-mic" title="Voice input (Whisper)">🎤</button>
+        <button id="btn-send" disabled title="Send (Enter)">➤</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ANALYSIS BOTTOM -->
+  <section id="panel-analysis">
+    <div id="analysis-hdr">
+      <span class="at">🔍 AI Analysis</span>
+      <span id="analysis-ptag">Architecture Mode</span>
+      <div class="spacer"></div>
+      <button id="btn-save-rep" disabled>💾 Save Report</button>
+      <button id="btn-analyse" disabled>Analyse File</button>
+    </div>
+    <div id="analysis-body">
+      <div class="aempty" id="analysis-empty">Load a file and click <strong>&nbsp;Analyse File&nbsp;</strong> to generate a detailed AI report</div>
+    </div>
+  </section>
+
+</div><!-- #app -->
+
+<input type="file" id="file-input" multiple accept="*" style="display:none" />
+
+<script>
+/* ═══════════════════════════════════════════════
+   PANDAAI SHELL — boot, routing, UI wiring
+   Modules loaded lazily from /modules/
+   Globals: window.__panda{Crypto,Sync,Files,Renderer,AI,Analysis}
+═══════════════════════════════════════════════ */
+
+// ── Service Worker ───────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(e => console.warn('[SW]', e));
+}
+
+// ── Theme (persisted in localStorage) ───────
+(function initTheme() {
+  const t = localStorage.getItem('panda_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-theme').textContent = t === 'dark' ? '🌙' : '☀️';
+})();
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('panda_theme', next);
+  const icon = next === 'dark' ? '🌙' : '☀️';
+  document.getElementById('btn-theme').textContent = icon;
+  document.getElementById('s-theme-btn').textContent = icon;
+}
+document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+document.getElementById('s-theme-btn').addEventListener('click', toggleTheme);
+
+// ── Settings panel ───────────────────────────
+document.getElementById('btn-settings').addEventListener('click', () => {
+  document.getElementById('settings').classList.toggle('open');
+});
+document.getElementById('btn-cls-settings').addEventListener('click', () => {
+  document.getElementById('settings').classList.remove('open');
+});
+
+// ── Persona toggle ───────────────────────────
+window.__persona = 'architecture';
+document.querySelectorAll('.persona-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.persona-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const p = btn.getAttribute('data-persona');
+    window.__persona = p;
+    const ptag = document.getElementById('analysis-ptag');
+    const abtn = document.getElementById('btn-analyse');
+    if (p === 'architecture') {
+      ptag.textContent = 'Architecture Mode';
+      ptag.style.color = 'var(--acc)';
+      abtn.classList.remove('int');
+    } else {
+      ptag.textContent = 'Interior Mode';
+      ptag.style.color = 'var(--int)';
+      abtn.classList.add('int');
+    }
+    if (window.__pandaAI) window.__pandaAI.setPersona(p);
+  });
+});
+
+// ── Toast ────────────────────────────────────
+window.toast = function(msg, type = 'nfo', ms = 3000) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), ms);
+};
+
+// ── Loading overlay ──────────────────────────
+window.setLoadProgress = function(pct, label) {
+  document.getElementById('pbar').style.width = pct + '%';
+  if (label) document.getElementById('load-lbl').textContent = label;
+};
+window.hideLoading = function() {
+  const el = document.getElementById('loading');
+  el.classList.add('hide');
+  setTimeout(() => el.remove(), 600);
+};
+
+// ── Sync status ──────────────────────────────
+window.setSyncStatus = function(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-lbl');
+  dot.className = 'sdot ' + (state === 'ok' ? 'on' : state === 'busy' ? 'busy' : state === 'err' ? 'err' : '');
+  if (label) lbl.textContent = label;
+};
+
+// ── Viewer drop zone ─────────────────────────
+const vwrap = document.getElementById('viewer-wrap');
+const vdrop = document.getElementById('viewer-drop');
+vwrap.addEventListener('dragover', e => { e.preventDefault(); vdrop.classList.add('dragging'); });
+vwrap.addEventListener('dragleave', () => vdrop.classList.remove('dragging'));
+vwrap.addEventListener('drop', e => {
+  e.preventDefault(); vdrop.classList.remove('dragging');
+  const files = [...e.dataTransfer.files];
+  if (files.length) window.__pandaFiles ? window.__pandaFiles.add(files) : toast('Still loading — try again in a moment', 'nfo');
+});
+
+// ── File tree drop zone ──────────────────────
+const fdz = document.getElementById('files-dz');
+fdz.addEventListener('dragover', e => { e.preventDefault(); fdz.classList.add('over'); });
+fdz.addEventListener('dragleave', () => fdz.classList.remove('over'));
+fdz.addEventListener('drop', e => {
+  e.preventDefault(); fdz.classList.remove('over');
+  const files = [...e.dataTransfer.files];
+  if (files.length && window.__pandaFiles) window.__pandaFiles.add(files);
+});
+fdz.addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('btn-upload').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', e => {
+  const files = [...e.target.files];
+  if (files.length && window.__pandaFiles) window.__pandaFiles.add(files);
+  e.target.value = '';
+});
+
+// ── Chat: textarea auto-resize + send ────────
+const chatIn = document.getElementById('chat-in');
+const btnSend = document.getElementById('btn-send');
+chatIn.addEventListener('input', () => {
+  chatIn.style.height = 'auto';
+  chatIn.style.height = Math.min(chatIn.scrollHeight, 110) + 'px';
+  btnSend.disabled = !chatIn.value.trim();
+});
+chatIn.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!btnSend.disabled) btnSend.click(); }
+});
+btnSend.addEventListener('click', () => {
+  const msg = chatIn.value.trim();
+  if (!msg) return;
+  chatIn.value = ''; chatIn.style.height = 'auto'; btnSend.disabled = true;
+  if (window.__pandaAI) window.__pandaAI.chat(msg);
+  else toast('AI not ready yet', 'nfo');
+});
+
+// ── Mic button ───────────────────────────────
+document.getElementById('btn-mic').addEventListener('click', () => {
+  if (window.__pandaAI) window.__pandaAI.startVoice();
+  else toast('AI not ready yet', 'nfo');
+});
+
+// ── Analyse + Save ───────────────────────────
+document.getElementById('btn-analyse').addEventListener('click', () => {
+  if (window.__pandaAnalysis) window.__pandaAnalysis.run();
+});
+document.getElementById('btn-save-rep').addEventListener('click', () => {
+  if (window.__pandaAnalysis) window.__pandaAnalysis.save();
+});
+
+// ── Clear chat ───────────────────────────────
+document.getElementById('btn-clr-chat').addEventListener('click', () => {
+  const msgs = document.getElementById('chat-msgs');
+  msgs.innerHTML = '';
+  msgs.appendChild(document.getElementById('chat-empty') || (() => {
+    const d = document.createElement('div'); d.className = 'chat-empty'; d.id = 'chat-empty';
+    d.innerHTML = '<div style="font-size:28px;opacity:.35">💬</div><div>Ask PandaAI anything</div>';
+    return d;
+  })());
+});
+
+// ── Context menu ─────────────────────────────
+const ctxMenu = document.getElementById('ctxmenu');
+let ctxTarget = null;
+window.showCtxMenu = function(e, fileId) {
+  e.preventDefault(); ctxTarget = fileId;
+  ctxMenu.style.display = 'block';
+  ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 170) + 'px';
+  ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 180) + 'px';
+};
+document.addEventListener('click', () => ctxMenu.style.display = 'none');
+ctxMenu.querySelectorAll('.ci').forEach(item => {
+  item.addEventListener('click', () => {
+    const action = item.getAttribute('data-a');
+    if (ctxTarget && window.__pandaFiles) window.__pandaFiles.action(action, ctxTarget);
+    ctxMenu.style.display = 'none';
+  });
+});
+
+// ── Setup modal ──────────────────────────────
+let mStep = 0;
+const mSteps = document.querySelectorAll('.mstep');
+const mDots  = document.querySelectorAll('.sdot2');
+function goStep(n) {
+  mSteps.forEach((s,i) => s.classList.toggle('cur', i === n));
+  mDots.forEach((d,i) => { d.classList.toggle('cur', i === n); d.classList.toggle('done', i < n); });
+  document.getElementById('s-back').style.display = n === 0 ? 'none' : '';
+  document.getElementById('s-next').textContent = n === mSteps.length - 1 ? '🐼 Launch PandaAI' : 'Next →';
+  mStep = n;
+}
+document.getElementById('s-next').addEventListener('click', () => {
+  if (mStep < mSteps.length - 1) { goStep(mStep + 1); return; }
+  // Final — collect and store in session memory
+  const pass = document.getElementById('s-pass').value;
+  const pass2 = document.getElementById('s-pass2').value;
+  if (pass !== pass2 && mStep === 0) { toast('Passphrases do not match', 'er'); goStep(0); return; }
+  window.__setupData = {
+    passphrase: document.getElementById('s-pass').value,
+    pat: document.getElementById('s-pat').value,
+    repo: document.getElementById('s-repo').value,
+    groqKey: document.getElementById('s-groq').value
+  };
+  document.getElementById('modal-setup').classList.add('hide');
+  sessionStorage.setItem('panda_setup_done', '1');
+  launchApp();
+});
+document.getElementById('s-back').addEventListener('click', () => { if (mStep > 0) goStep(mStep - 1); });
+
+window.showSetup = function() {
+  document.getElementById('modal-setup').classList.remove('hide');
+  goStep(0);
+};
+
+// ── Settings actions ──────────────────────────
+document.getElementById('s-sync').addEventListener('click', () => {
+  if (window.__pandaSync) window.__pandaSync.flush(true);
+  else toast('Sync not ready', 'nfo');
+});
+document.getElementById('s-clr-cache').addEventListener('click', () => {
+  if ('caches' in window) {
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+      toast('Cache cleared — reload to re-download modules', 'ok');
+    });
+  }
+});
+document.getElementById('s-chg-groq').addEventListener('click', () => {
+  const k = prompt('Enter new Groq API key:');
+  if (k && k.trim()) { sessionStorage.setItem('panda_groq', k.trim()); toast('Groq key updated', 'ok'); }
+});
+document.getElementById('s-chg-pat').addEventListener('click', () => {
+  const k = prompt('Enter new GitHub PAT:');
+  if (k && k.trim()) { sessionStorage.setItem('panda_pat', k.trim()); toast('PAT updated', 'ok'); }
+});
+
+// ── Viewer toolbar wiring (delegates to renderer) ──
+const toolBtns = document.querySelectorAll('#vtoolbar .tbtn');
+toolBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.id;
+    if (!window.__pandaRenderer) { toast('Viewer loading…', 'nfo'); return; }
+    // Toggle exclusive nav tools
+    if (['t-orbit','t-pan'].includes(id)) {
+      ['t-orbit','t-pan'].forEach(tid => document.getElementById(tid).classList.toggle('on', tid === id));
+    }
+    // Toggle display toggles
+    if (['t-wire','t-xray','t-normals','t-grid','t-shadow','t-4view','t-walk','t-turn','t-section','t-explode'].includes(id)) {
+      btn.classList.toggle('on');
+    }
+    window.__pandaRenderer.command(id, btn.classList.contains('on'));
+  });
+});
+
+// ── Module loader ─────────────────────────────
+window.__mods = {};
+window.loadMod = function(path) {
+  if (window.__mods[path]) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    const base = location.href.replace(/\/[^/]*$/, '/');
+    s.src = base + path;
+    s.onload = () => { window.__mods[path] = true; res(); };
+    s.onerror = () => rej(new Error('Cannot load: ' + path));
+    document.head.appendChild(s);
+  });
+};
+
+// ── App launch (after setup) ──────────────────
+async function launchApp() {
+  try {
+    setLoadProgress(10, 'Initialising crypto…');
+    await loadMod('modules/crypto.js');
+    if (window.__pandaCrypto) await window.__pandaCrypto.init(window.__setupData.passphrase);
+
+    setLoadProgress(25, 'Connecting to vault…');
+    await loadMod('modules/github-sync.js');
+    if (window.__pandaSync) await window.__pandaSync.init({
+      pat: window.__setupData.pat,
+      repo: window.__setupData.repo,
+      groqKey: window.__setupData.groqKey
+    });
+
+    setLoadProgress(45, 'Loading file store…');
+    await loadMod('modules/file-store.js');
+    if (window.__pandaFiles) await window.__pandaFiles.init();
+
+    setLoadProgress(65, 'Loading 3D renderer…');
+    await loadMod('modules/renderer.js');
+    if (window.__pandaRenderer) await window.__pandaRenderer.init('viewer-canvas');
+
+    setLoadProgress(80, 'Loading AI router…');
+    await loadMod('modules/ai-router.js');
+    if (window.__pandaAI) await window.__pandaAI.init({
+      groqKey: window.__setupData.groqKey,
+      persona: window.__persona
+    });
+
+    setLoadProgress(92, 'Loading analysis engine…');
+    await loadMod('modules/analysis.js');
+    if (window.__pandaAnalysis) await window.__pandaAnalysis.init();
+
+    setLoadProgress(100, 'Ready');
+    setTimeout(hideLoading, 400);
+    toast('🐼 PandaAI ready', 'ok', 2500);
+    window.__setupData = null; // clear keys from memory once distributed
+  } catch(e) {
+    console.error('[boot]', e);
+    toast('Boot failed: ' + e.message, 'er', 8000);
+    hideLoading();
+  }
+}
+
+// ── Boot ─────────────────────────────────────
+(function boot() {
+  const done = sessionStorage.getItem('panda_setup_done');
+  if (!done) {
+    hideLoading();
+    showSetup();
+  } else {
+    // Re-use keys from session storage (user opened a new tab in same session)
+    window.__setupData = {
+      passphrase: sessionStorage.getItem('panda_pass') || '',
+      pat: sessionStorage.getItem('panda_pat') || '',
+      repo: sessionStorage.getItem('panda_repo') || 'PandaDesign-in/bot',
+      groqKey: sessionStorage.getItem('panda_groq') || ''
+    };
+    if (!window.__setupData.passphrase || !window.__setupData.groqKey) {
+      // Keys expired — re-setup
+      sessionStorage.clear();
+      hideLoading();
+      showSetup();
+    } else {
+      launchApp();
+    }
+  }
+})();
+</script>
+</body>
+</html>
