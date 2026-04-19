@@ -116,6 +116,39 @@
     .sdot.err { background: var(--err); }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
+    /* ── PERSONA PILLS (topbar) ── */
+    .ppills { display:flex; gap:3px; flex-wrap:nowrap; overflow:hidden; max-width:280px; align-items:center; }
+    .ppill  { display:flex; align-items:center; gap:3px; padding:3px 8px; border-radius:10px; font-size:11px; font-weight:600; white-space:nowrap; flex-shrink:0; cursor:pointer; transition:opacity var(--trans); }
+    .ppill:hover { opacity:.8; }
+    .mode-badge { padding:2px 9px; border-radius:10px; font-size:10px; font-weight:700; background:var(--bg3); border:1px solid var(--bd); color:var(--t1); cursor:pointer; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; transition:all var(--trans); }
+    .mode-badge.expert { background:var(--acc-d); border-color:var(--acc); color:var(--acc); }
+
+    /* ── PERSONA PANEL ── */
+    #personas-panel { position:fixed; top:var(--topbar-h); right:0; width:390px; max-width:95vw; height:calc(100vh - var(--topbar-h)); background:var(--bg2); border-left:1px solid var(--bds); box-shadow:var(--shad); z-index:6100; transform:translateX(100%); transition:transform .25s ease; display:flex; flex-direction:column; overflow:hidden; }
+    #personas-panel.open { transform:translateX(0); }
+    .pnl-body { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .mode-bar { display:flex; align-items:center; gap:8px; padding:9px 11px; background:var(--bg3); border:1px solid var(--bd); border-radius:var(--radius); }
+    .mode-bar-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--t2); flex:1; }
+    .mode-btns { display:flex; gap:3px; }
+    .mtbtn { padding:4px 13px; border-radius:var(--radius-sm); background:none; border:1px solid var(--bd); color:var(--t1); font-size:12px; font-weight:600; cursor:pointer; transition:all var(--trans); }
+    .mtbtn:hover { background:var(--bgh); }
+    .mtbtn.active { background:var(--acc); border-color:var(--acc); color:#fff; }
+    .mtbtn.active.expert-btn { background:#7c3aed; border-color:#7c3aed; }
+    .persona-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .pcard { background:var(--bg3); border:2px solid var(--bd); border-radius:var(--radius); cursor:pointer; transition:all var(--trans); }
+    .pcard:hover { border-color:var(--bds); }
+    .pcard.pactive { border-color:var(--acc); background:var(--acc-d); }
+    .pcard label { display:flex; align-items:flex-start; gap:8px; padding:9px 10px; cursor:pointer; user-select:none; }
+    .pcard input[type=checkbox] { margin-top:2px; flex-shrink:0; width:13px; height:13px; accent-color:var(--acc); }
+    .pcard-body { flex:1; min-width:0; }
+    .pcard-hdr { display:flex; align-items:center; gap:5px; }
+    .pcard-emoji { font-size:15px; }
+    .pcard-name  { font-size:12px; font-weight:700; color:var(--t0); line-height:1.3; }
+    .pcard-tag   { font-size:10px; color:var(--t2); margin-top:2px; line-height:1.4; }
+    .blend-banner { display:none; padding:8px 12px; border-radius:var(--radius); font-size:11.5px; text-align:center; border:1px solid; }
+    .blend-banner.on { display:block; background:var(--acc-d); border-color:var(--acc); color:var(--acc); }
+    .pnl-hint { font-size:11px; color:var(--t2); line-height:1.6; }
+
     /* ── FILE TREE ── */
     #panel-files { background: var(--bg1); border-right: 1px solid var(--bd); display: flex; flex-direction: column; overflow: hidden; }
     .ph { display: flex; align-items: center; padding: 0 10px; height: 34px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); border-bottom: 1px solid var(--bd); gap: 5px; flex-shrink: 0; }
@@ -375,6 +408,28 @@
   <div class="ci del" data-a="delete">🗑️ Delete</div>
 </div>
 
+<!-- PERSONA PANEL -->
+<div id="personas-panel">
+  <div class="shdr">
+    <span>👥 Analysis Personas</span>
+    <button class="ibtn" id="btn-cls-personas">✕</button>
+  </div>
+  <div class="pnl-body">
+    <div class="mode-bar">
+      <span class="mode-bar-label">Analysis Depth</span>
+      <div class="mode-btns">
+        <button class="mtbtn active" data-mode="generic">Generic</button>
+        <button class="mtbtn expert-btn" data-mode="expert">Expert</button>
+      </div>
+    </div>
+    <div class="pnl-hint">Check one or more disciplines. When multiple are selected, PandaAI blends all perspectives into one report.</div>
+    <div class="persona-grid" id="persona-grid">
+      <!-- Populated from charmap.json on first open -->
+    </div>
+    <div class="blend-banner" id="blend-banner">🔀 Blend mode — report covers all checked disciplines</div>
+  </div>
+</div>
+
 <!-- SETTINGS PANEL -->
 <div id="settings">
   <div class="shdr">
@@ -432,10 +487,11 @@
   <!-- TOPBAR -->
   <header id="topbar">
     <div class="logo"><span class="logo-emoji">🐼</span><span>PandaAI</span></div>
-    <div class="persona-toggle">
-      <button data-persona="architecture" class="active" id="pbtn-arch">🏛️ Architecture</button>
-      <button data-persona="interior" id="pbtn-int">🛋️ Interior</button>
+    <div class="ppills" id="persona-pills">
+      <span class="ppill" style="background:rgba(74,158,255,.15);color:#4a9eff;border:1px solid rgba(74,158,255,.4)">🏛️ Architect</span>
     </div>
+    <button class="mode-badge" id="mode-badge" title="Toggle Generic / Expert depth">Generic</button>
+    <button class="ibtn" id="btn-personas" title="Configure personas">👥</button>
     <div class="spacer"></div>
     <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)">
       <span id="sync-lbl">Not synced</span>
@@ -632,27 +688,149 @@ document.getElementById('btn-cls-settings').addEventListener('click', () => {
   document.getElementById('settings').classList.remove('open');
 });
 
-// ── Persona toggle ───────────────────────────
-window.__persona = 'architecture';
-document.querySelectorAll('.persona-toggle button').forEach(btn => {
+// ── Persona system ────────────────────────────
+window.__personas = { active: new Set(['architecture']), mode: 'generic' };
+
+// Open / close persona panel
+document.getElementById('btn-personas').addEventListener('click', () => {
+  document.getElementById('personas-panel').classList.toggle('open');
+  document.getElementById('settings').classList.remove('open');
+  ensurePersonaGrid();
+});
+document.getElementById('btn-cls-personas').addEventListener('click', () => {
+  document.getElementById('personas-panel').classList.remove('open');
+});
+
+// Mode toggle (inside persona panel)
+document.querySelectorAll('.mtbtn[data-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.persona-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const p = btn.getAttribute('data-persona');
-    window.__persona = p;
-    const ptag = document.getElementById('analysis-ptag');
-    const abtn = document.getElementById('btn-analyse');
-    if (p === 'architecture') {
-      ptag.textContent = 'Architecture Mode';
-      ptag.style.color = 'var(--acc)';
-      abtn.classList.remove('int');
-    } else {
-      ptag.textContent = 'Interior Mode';
-      ptag.style.color = 'var(--int)';
-      abtn.classList.add('int');
-    }
-    if (window.__pandaAI) window.__pandaAI.setPersona(p);
+    const mode = btn.dataset.mode;
+    window.__personas.mode = mode;
+    document.querySelectorAll('.mtbtn[data-mode]').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    syncModeBadge(mode);
+    refreshPersonaUI();
   });
+});
+
+// Mode badge (topbar quick-toggle)
+document.getElementById('mode-badge').addEventListener('click', () => {
+  const next = window.__personas.mode === 'generic' ? 'expert' : 'generic';
+  window.__personas.mode = next;
+  document.querySelectorAll('.mtbtn[data-mode]').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === next));
+  syncModeBadge(next);
+  refreshPersonaUI();
+});
+
+function syncModeBadge(mode) {
+  const badge = document.getElementById('mode-badge');
+  if (!badge) return;
+  badge.textContent = mode === 'expert' ? 'Expert' : 'Generic';
+  badge.classList.toggle('expert', mode === 'expert');
+}
+
+function ensurePersonaGrid() {
+  const grid = document.getElementById('persona-grid');
+  if (grid.dataset.built) return;
+  const personas = window.__charmap?.personas;
+  if (!personas) {
+    // Charmap not loaded yet — try again shortly
+    setTimeout(() => { if (!grid.dataset.built) ensurePersonaGrid(); }, 400);
+    return;
+  }
+  buildPersonaGrid(personas);
+}
+
+function buildPersonaGrid(personas) {
+  const grid = document.getElementById('persona-grid');
+  grid.innerHTML = '';
+  for (const [id, p] of Object.entries(personas)) {
+    const isActive = window.__personas.active.has(id);
+    const card = document.createElement('div');
+    card.className = 'pcard' + (isActive ? ' pactive' : '');
+    card.dataset.personaId = id;
+    card.innerHTML = `<label>
+      <input type="checkbox" class="pcheck" ${isActive ? 'checked' : ''}>
+      <div class="pcard-body">
+        <div class="pcard-hdr">
+          <span class="pcard-emoji">${p.emoji}</span>
+          <span class="pcard-name">${p.label}</span>
+        </div>
+        <div class="pcard-tag">${p.tagline || ''}</div>
+      </div>
+    </label>`;
+    card.querySelector('.pcheck').addEventListener('change', function() {
+      if (this.checked) {
+        window.__personas.active.add(id);
+      } else {
+        window.__personas.active.delete(id);
+        if (window.__personas.active.size === 0) {
+          window.__personas.active.add(id); this.checked = true;
+        }
+      }
+      refreshPersonaUI();
+    });
+    grid.appendChild(card);
+  }
+  grid.dataset.built = '1';
+  refreshPersonaUI();
+}
+
+function refreshPersonaUI() {
+  // Update pcard active classes
+  document.querySelectorAll('.pcard').forEach(card => {
+    card.classList.toggle('pactive', window.__personas.active.has(card.dataset.personaId));
+  });
+
+  // Blend banner
+  const bb = document.getElementById('blend-banner');
+  if (bb) bb.classList.toggle('on', window.__personas.active.size > 1);
+
+  // Topbar pills
+  const pills = document.getElementById('persona-pills');
+  if (pills) {
+    pills.innerHTML = '';
+    for (const id of window.__personas.active) {
+      const p = window.__charmap?.personas?.[id];
+      if (!p) continue;
+      const pill = document.createElement('span');
+      pill.className = 'ppill';
+      const acc = p.color_accent || '#4a9eff';
+      pill.style.cssText = `background:${acc}22;color:${acc};border:1px solid ${acc}55`;
+      pill.textContent = p.emoji + ' ' + p.label;
+      pills.appendChild(pill);
+    }
+  }
+
+  // Analysis header tag
+  const ptag = document.getElementById('analysis-ptag');
+  if (ptag) {
+    const ids = [...window.__personas.active];
+    const mode = window.__personas.mode;
+    if (ids.length === 1) {
+      const p = window.__charmap?.personas?.[ids[0]];
+      ptag.textContent = (p ? p.emoji + ' ' + p.label : ids[0]) + ' · ' +
+        (mode === 'expert' ? 'Expert' : 'Generic');
+      ptag.style.color = p?.color_accent || 'var(--acc)';
+    } else {
+      ptag.textContent = '🔀 Blend · ' + ids.length + ' disciplines · ' +
+        (mode === 'expert' ? 'Expert' : 'Generic');
+      ptag.style.color = 'var(--acc)';
+    }
+  }
+
+  // Notify AI module
+  if (window.__pandaAI?.setPersonas) {
+    window.__pandaAI.setPersonas([...window.__personas.active], window.__personas.mode);
+  }
+}
+
+// Legacy alias — kept for any remaining references
+window.__persona = 'architecture';
+Object.defineProperty(window, '__persona', {
+  get() { return [...window.__personas.active][0] || 'architecture'; },
+  set(v) { window.__personas.active = new Set([v]); }
 });
 
 // ── Toast ────────────────────────────────────

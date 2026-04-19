@@ -10,10 +10,12 @@
 'use strict';
 
 const GROQ_URL   = 'https://api.groq.com/openai/v1';
-let _groqKey = null;
-let _charmap = null;
-let _persona = 'architecture';
-let _history = [];          // { role, content }[]
+let _groqKey    = null;
+let _charmap    = null;
+let _personas   = ['architecture'];   // active persona IDs
+let _mode       = 'generic';          // 'generic' | 'expert'
+let _persona    = 'architecture';     // legacy single alias
+let _history    = [];                 // { role, content }[]
 let _recording = false;
 let _mediaRecorder = null;
 let _audioChunks = [];
@@ -36,10 +38,8 @@ async function init({ groqKey, persona }) {
   try {
     const res = await fetch('./charmap.json');
     _charmap = await res.json();
-    // Override models from charmap if present
-    if (_charmap.app?.model_routing) {
-      Object.assign(MODELS, _charmap.app.model_routing);
-    }
+    window.__charmap = _charmap;  // expose globally for persona panel
+    if (_charmap.app?.model_routing) Object.assign(MODELS, _charmap.app.model_routing);
   } catch(e) {
     console.warn('[ai] charmap.json load failed:', e.message);
   }
@@ -52,27 +52,56 @@ async function init({ groqKey, persona }) {
   console.log('[ai] Module ready — persona:', _persona);
 }
 
-// ── Set persona ───────────────────────────────
-function setPersona(p) {
-  _persona = p;
-  // Add persona-change message to context
-  _history.push({
-    role: 'system',
-    content: `User has switched to ${p === 'architecture' ? 'Architecture' : 'Interior Design'} mode.`
-  });
-  appendMsg('assistant', `Switched to ${p === 'architecture' ? '🏛️ Architecture' : '🛋️ Interior'} mode.`);
+// ── Set personas + mode ───────────────────────
+function setPersonas(ids, mode) {
+  _personas = ids && ids.length ? ids : ['architecture'];
+  _persona  = _personas[0];
+  _mode     = mode || 'generic';
+  const names = _personas.map(id => {
+    const p = _charmap?.personas?.[id];
+    return p ? p.emoji + ' ' + p.label : id;
+  }).join(', ');
+  _history.push({ role:'system', content:`Persona set to: ${names} (${_mode} mode).` });
+  appendMsg('assistant', `Mode: ${names} · ${_mode === 'expert' ? '🔬 Expert' : '📋 Generic'}`);
 }
 
-// ── Get current system prompt from charmap ────
-function getSystemPrompt(model) {
+// ── Set persona (legacy single) ───────────────
+function setPersona(p) { setPersonas([p], _mode); }
+
+// ── Build system prompt for current personas+mode ──
+function getSystemPrompt(context) {
+  // context: 'chat' | '70b' (analysis)
   if (!_charmap) {
-    return model === '70b'
-      ? 'You are PandaAI, an expert architectural and interior design AI assistant.'
+    return context === '70b'
+      ? 'You are PandaAI, an expert multi-discipline design AI assistant.'
       : 'You are PandaAI, a helpful design AI assistant.';
   }
-  const p = _charmap.personas?.[_persona];
-  if (!p) return 'You are PandaAI, a helpful design AI assistant.';
-  return p.system_prompt + '\n\nOutput format: ' + (p.output_format || 'clear markdown');
+
+  if (context === 'chat') {
+    // For chat use the first persona's mode prompt (lightweight)
+    const p = _charmap.personas?.[_personas[0]];
+    const m = p?.modes?.[_mode] || p?.modes?.generic;
+    return m?.system_prompt
+      ? m.system_prompt + '\n\nOutput format: ' + (m.output_format || 'clear markdown')
+      : 'You are PandaAI, a helpful design AI assistant.';
+  }
+
+  // Analysis: blend all active personas
+  const prompts = _personas.map(id => {
+    const p = _charmap.personas?.[id];
+    const m = p?.modes?.[_mode] || p?.modes?.generic;
+    if (!m?.system_prompt) return '';
+    return `=== ${p.emoji} ${p.label} (${_mode}) ===\n${m.system_prompt}\nOutput format: ${m.output_format || 'structured markdown'}`;
+  }).filter(Boolean);
+
+  const modeInstruction = _charmap.modes?.[_mode]?.depth_instruction || '';
+
+  if (_personas.length > 1) {
+    return (_charmap.blend_config?.blend_preamble || 'Analyse from all perspectives:') +
+      '\n\n' + prompts.join('\n\n') +
+      '\n\n' + modeInstruction;
+  }
+  return prompts[0] + (modeInstruction ? '\n\n' + modeInstruction : '');
 }
 
 // ── Chat (8B) ─────────────────────────────────
@@ -100,7 +129,7 @@ async function chat(userMessage) {
   if (_history.length > MAX_HISTORY) _history.splice(0, _history.length - MAX_HISTORY);
 
   try {
-    const reply = await callGroq(MODELS.chat, getSystemPrompt('8b'), _history);
+    const reply = await callGroq(MODELS.chat, getSystemPrompt('chat'), _history);
     _history.push({ role: 'assistant', content: reply });
     showTyping(false);
     appendMsg('assistant', reply);
@@ -118,26 +147,49 @@ async function analyseFile(sceneSummary, ifcMeta) {
   if (!_groqKey) throw new Error('Groq API key not set');
   updateModelPill('70b');
 
-  const p = _charmap?.personas?.[_persona];
-  const sections = p?.analysis_sections || ['Overview', 'Observations', 'Flags', 'Recommendations'];
-  const focusAreas = p?.focus_areas?.join(', ') || 'spatial and structural qualities';
-
-  let prompt = `Analyse this 3D model/drawing:\n\n`;
-  prompt += `File: ${sceneSummary.filename} (${sceneSummary.format})\n`;
-  prompt += `Geometry: ${sceneSummary.vertices.toLocaleString()} vertices, ${sceneSummary.faces.toLocaleString()} faces, ${sceneSummary.meshes} mesh(es)\n`;
-  prompt += `Dimensions: ${sceneSummary.dimensions.x} × ${sceneSummary.dimensions.y} × ${sceneSummary.dimensions.z} units\n`;
-  prompt += `Aspect ratios: XY=${sceneSummary.aspectRatio.xy}, XZ=${sceneSummary.aspectRatio.xz}\n`;
-  if (sceneSummary.materials?.length) prompt += `Named materials: ${sceneSummary.materials.join(', ')}\n`;
-  if (ifcMeta) {
-    prompt += `\nBIM Data: `;
-    prompt += Object.entries(ifcMeta).map(([t,n]) => `${t.replace('IFC','')}: ${n}`).join(', ') + '\n';
+  // Aggregate sections and focus areas across all active personas + mode
+  const sections   = [];
+  const focusAreas = [];
+  const tones      = [];
+  for (const id of _personas) {
+    const p = _charmap?.personas?.[id];
+    const m = p?.modes?.[_mode] || p?.modes?.generic;
+    if (!m) continue;
+    m.analysis_sections?.forEach(s => { if (!sections.includes(s)) sections.push(s); });
+    m.focus_areas?.forEach(f => { if (!focusAreas.includes(f)) focusAreas.push(f); });
+    if (m.tone) tones.push(m.tone);
   }
-  prompt += `\nFocus on: ${focusAreas}.\n`;
-  prompt += `Provide structured analysis with these sections: ${sections.join(', ')}.\n`;
-  prompt += `Use ${p?.tone || 'professional'} tone. Flag issues clearly with severity indicators.`;
+  // Fallback defaults
+  if (!sections.length)   sections.push('Overview', 'Key Observations', 'Issues & Flags', 'Recommendations');
+  if (!focusAreas.length) focusAreas.push('spatial quality', 'structural logic', 'code compliance');
+  if (_personas.length > 1) {
+    sections.push(_charmap?.blend_config?.synthesis_section_label || 'Cross-Discipline Synthesis');
+  }
 
-  const messages = [{ role: 'user', content: prompt }];
-  const reply = await callGroq(MODELS.analysis, getSystemPrompt('70b'), messages);
+  let prompt = sceneSummary.is2D
+    ? `Analyse this 2D drawing/document:\n\nFile: ${sceneSummary.filename} (${sceneSummary.format})\n`
+    : `Analyse this 3D model/drawing:\n\nFile: ${sceneSummary.filename} (${sceneSummary.format})\n` +
+      `Geometry: ${sceneSummary.vertices.toLocaleString()} vertices, ` +
+      `${sceneSummary.faces.toLocaleString()} faces, ${sceneSummary.meshes} mesh(es)\n` +
+      `Dimensions: ${sceneSummary.dimensions.x} × ${sceneSummary.dimensions.y} × ${sceneSummary.dimensions.z} units\n` +
+      `Aspect ratios: XY=${sceneSummary.aspectRatio.xy}, XZ=${sceneSummary.aspectRatio.xz}\n`;
+
+  if (sceneSummary.materials?.length) prompt += `Named materials: ${sceneSummary.materials.join(', ')}\n`;
+  if (ifcMeta && Object.keys(ifcMeta).length) {
+    prompt += `\nBIM element counts: ` +
+      Object.entries(ifcMeta).map(([k,v]) => `${k}: ${v}`).join(', ') + '\n';
+  }
+
+  prompt += `\nActive disciplines: ${_personas.map(id => {
+    const p = _charmap?.personas?.[id]; return p ? p.emoji + ' ' + p.label : id;
+  }).join(', ')}  |  Mode: ${_mode}\n`;
+  prompt += `Focus on: ${focusAreas.slice(0, 20).join(', ')}.\n`;
+  prompt += `Structure your response with these sections: ${sections.join(', ')}.\n`;
+  if (tones.length) prompt += `Tone: ${[...new Set(tones)].join(' / ')}.\n`;
+  prompt += `Flag issues with severity indicators. Be specific with dimensions and ratios where inferable.`;
+
+  const sysPrompt = getSystemPrompt('70b');
+  const reply = await callGroq(MODELS.analysis, sysPrompt, [{ role:'user', content:prompt }]);
   logToSession('analysis', reply);
   return reply;
 }
@@ -202,7 +254,7 @@ async function processVoice() {
 async function analyseFileChat(reportContext, userMessage) {
   if (!_groqKey) throw new Error('Groq API key not set');
   updateModelPill('70b');
-  const sysPrompt = getSystemPrompt('70b') +
+  const sysPrompt = getSystemPrompt('70b').split('\n===')[0] +
     '\n\nYou are discussing an analysis report. Respond to the user\'s follow-up question or refinement request about the report.\n\nREPORT CONTEXT:\n' + reportContext;
   const messages = [{ role: 'user', content: userMessage }];
   const reply = await callGroq(MODELS.analysis, sysPrompt, messages);
@@ -360,6 +412,7 @@ window.addEventListener('beforeunload', () => flushSession());
 window.__pandaAI = {
   init,
   setPersona,
+  setPersonas,
   chat,
   analyseFile,
   analyseFileChat,
