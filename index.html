@@ -312,7 +312,7 @@
     <div class="mhdr">
       <div class="mlogo">🐼</div>
       <div class="mtitle">PandaAI</div>
-      <div class="msub">Enter your GitHub PAT to unlock.<br>That's all you need — every session.</div>
+      <div class="msub">Enter your GitHub PAT — that's the only key needed.</div>
     </div>
     <div class="mbody">
       <div class="mstep cur" id="mstep-0">
@@ -324,11 +324,6 @@
             Generate: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained or Classic.
           </div>
           <input type="password" class="fi" id="s-pat" placeholder="ghp_… or github_pat_…" autocomplete="off" autofocus />
-        </div>
-        <div class="fg" id="s-groq-wrap">
-          <div class="fl">Groq API Key <span style="color:var(--t2);font-weight:400;font-size:11px">(first time only — saved to vault)</span></div>
-          <div class="fh">Powers chat (8B), file analysis (70B), and voice (Whisper). Free at <strong>console.groq.com</strong>.<br>Leave blank if already saved.</div>
-          <input type="password" class="fi" id="s-groq" placeholder="gsk_… (leave blank if already saved)" autocomplete="off" />
         </div>
         <div style="background:var(--bg3);padding:9px 12px;border-radius:var(--radius);border:1px solid var(--bd);font-size:11px;color:var(--t2);line-height:1.6">
           🔒 Your PAT never leaves the browser session. All vault data is AES-256-GCM encrypted using a key derived from your PAT. Nothing is stored unencrypted.
@@ -825,13 +820,11 @@ document.getElementById('s-next').addEventListener('click', () => {
   if (!pat.startsWith('ghp_') && !pat.startsWith('github_pat_') && pat.length < 20) {
     toast('That does not look like a valid GitHub PAT', 'er'); return;
   }
-  const groqKey = document.getElementById('s-groq').value.trim();
   // PAT is both the auth token AND the encryption passphrase
   window.__setupData = {
     passphrase: pat,   // PAT → PBKDF2 → AES-256-GCM key
     pat,
-    repo: 'PandaDesign-in/bot',
-    groqKey            // may be blank — loaded from vault if already saved
+    repo: 'PandaDesign-in/bot'
   };
   sessionStorage.setItem('panda_pat', pat);
   document.getElementById('modal-setup').classList.add('hide');
@@ -955,17 +948,9 @@ async function launchApp() {
     setLoadProgress(75, 'Loading AI…');
     await loadMod('modules/ai-router.js');
 
-    // Resolve Groq key — priority: modal input > sessionStorage > vault
-    let groqKey = (window.__setupData.groqKey || '').trim()
-               || sessionStorage.getItem('panda_groq')
+    // Resolve Groq key — sessionStorage (same tab) → encrypted vault → absent
+    let groqKey = sessionStorage.getItem('panda_groq')
                || await window.__pandaSync.loadGroqKey().catch(() => null);
-
-    // If modal provided a key, save it to vault right now
-    if ((window.__setupData.groqKey || '').trim()) {
-      await window.__pandaSync.saveGroqKey(window.__setupData.groqKey.trim()).catch(e =>
-        console.warn('[boot] groq key vault save:', e.message)
-      );
-    }
 
     if (groqKey) sessionStorage.setItem('panda_groq', groqKey);
     await window.__pandaAI.init({ groqKey: groqKey || '', persona: window.__persona });
@@ -978,8 +963,8 @@ async function launchApp() {
     setTimeout(hideLoading, 350);
     toast('🐼 PandaAI ready', 'ok', 2500);
 
-    // If no Groq key, show the Groq modal (proper UI, no prompt())
-    if (!groqKey) showGroqModal();
+    // No Groq key — quiet hint, no modal interruption
+    if (!groqKey) toast('No Groq key saved — add one via ⚙️ Settings', 'nfo', 5000);
 
     window.__setupData = null;
 
