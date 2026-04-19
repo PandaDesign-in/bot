@@ -1,0 +1,29 @@
+{
+  "session_id": "2026-16-003",
+  "started": "2026-04-19T22:00:00Z",
+  "ended": "2026-04-19T23:00:00Z",
+  "encrypted": false,
+  "persona": "architecture",
+  "files_loaded": [],
+  "summary": "Major fix session — upload broken (GitHub 1MB limit + binary decrypt mismatch), render broken (re-open from vault used decryptJSON on binary data), added 2D viewer, added analysis refinement chat, added 3MF/AMF loaders, fixed crypto toB64 stack overflow.",
+  "fixes": {
+    "upload_broken": "Files were encrypted with encryptBinary and written to GitHub via Contents API. Two bugs: (1) crypto.toB64 used spread operator which causes stack overflow on large buffers. (2) GitHub Contents API has a ~1MB limit — most CAD files exceed this. Fix: (1) toB64 now uses a loop. (2) Files now stored in IndexedDB as primary storage (no size limit, no network). GitHub backup is attempted silently but failures are non-fatal.",
+    "render_broken_from_vault": "openInViewer called readEncrypted (decryptJSON) to retrieve files, but they were written with writeBinaryEncrypted (encryptBinary). decryptJSON tried to TextDecoder + JSON.parse a raw binary — crashed. Fix: added readBinaryEncrypted to github-sync.js that calls decryptBinary. openInViewer now reads from IndexedDB first (fast), falls back to GitHub vault with readBinaryEncrypted, caches result in IDB.",
+    "2d_viewer": "Added Group F (2D) formats: PNG, JPG, GIF, BMP, WebP, TIFF, SVG, PDF. load2D() renders images as <img>, SVG inline, PDF in <iframe>. #viewer-2d overlay overlays the 3D canvas. 3D tools are blocked when a 2D file is active.",
+    "analysis_chat": "Bottom panel split into left (report) + right (290px refinement chat). chatRefine() in analysis.js calls analyseFileChat() in ai-router.js — 70B model with the full report as system context. User can ask to focus on structural issues, change perspective, re-analyse as interior, etc.",
+    "new_formats": "3MFLoader and AMFLoader added to Three.js bootstrap (window.__TL). lwo/x3d changed to fallback (removed from Three.js r157/r152). SKP changed to fallback.",
+    "sw_cache": "SW version bumped to pandaai-v3. Added 3MFLoader and AMFLoader CDN paths to pre-cache list."
+  },
+  "messages": [
+    {
+      "role": "user",
+      "ts": "2026-04-19T22:00:00Z",
+      "content": "it wont upload files, it wont render, add 2d and other bim files to be compatible, add analysis chat box alongside the report. push local changes first then pull."
+    },
+    {
+      "role": "assistant",
+      "ts": "2026-04-19T22:30:00Z",
+      "content": "Diagnosed root causes: (1) upload broken by GitHub 1MB Contents API limit + toB64 stack overflow on large buffers. (2) render broken on re-open because readEncrypted used decryptJSON but files were encrypted with encryptBinary. Fixed all: IndexedDB as primary file store, readBinaryEncrypted added, 2D viewer for images/SVG/PDF, analysis refinement chat panel, 3MF/AMF loaders added. 8 files changed."
+    }
+  ]
+}

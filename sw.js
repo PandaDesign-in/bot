@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v1';
+const VERSION = 'pandaai-v3';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
@@ -45,6 +45,8 @@ const CDN_LIBS = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/TDSLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/VRMLLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/VTKLoader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/3MFLoader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/AMFLoader.js',
   // LWOLoader removed from Three.js r157 — skip
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/FirstPersonControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',

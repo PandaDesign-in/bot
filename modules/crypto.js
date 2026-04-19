@@ -35,7 +35,11 @@ async function deriveKey(passphrase, salt) {
 
 // ── Encode/decode helpers ────────────────────
 function toB64(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const bytes = new Uint8Array(buf);
+  let str = '';
+  // Loop instead of spread — spread causes stack overflow on large buffers
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str);
 }
 function fromB64(str) {
   const bin = atob(str);

@@ -198,6 +198,19 @@ async function processVoice() {
   }
 }
 
+// ── Analysis refinement chat (70B, report in context) ──
+async function analyseFileChat(reportContext, userMessage) {
+  if (!_groqKey) throw new Error('Groq API key not set');
+  updateModelPill('70b');
+  const sysPrompt = getSystemPrompt('70b') +
+    '\n\nYou are discussing an analysis report. Respond to the user\'s follow-up question or refinement request about the report.\n\nREPORT CONTEXT:\n' + reportContext;
+  const messages = [{ role: 'user', content: userMessage }];
+  const reply = await callGroq(MODELS.analysis, sysPrompt, messages);
+  logToSession('user', userMessage);
+  logToSession('assistant', reply);
+  return reply;
+}
+
 // ── Generate session summary ──────────────────
 async function generateSummary() {
   if (!_groqKey || _history.length < 2) return null;
@@ -349,6 +362,7 @@ window.__pandaAI = {
   setPersona,
   chat,
   analyseFile,
+  analyseFileChat,
   startVoice,
   stopVoice,
   generateSummary,

@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════
    PandaAI 🐼 — Renderer Module
-   Three.js 3D viewer. Uses window.THREE and window.__TL
-   (set by the importmap+module bootstrap in index.html).
+   Three.js 3D viewer + 2D image/SVG/PDF viewer.
+   Uses window.THREE and window.__TL globals from index.html bootstrap.
    Exposes: window.__pandaRenderer
 ═══════════════════════════════════════════════ */
 (function() {
@@ -12,8 +12,8 @@ let TL  = null;   // window.__TL loaders alias
 let _scene, _camera, _renderer, _controls;
 let _canvas;
 let _animId;
-let _current = null;   // current THREE.Object3D
-let _meta    = null;   // current file metadata
+let _current = null;   // current THREE.Object3D or { _2d: true }
+let _meta    = null;
 let _grid    = true;
 let _gridHelper, _axesHelper;
 let _lights  = {};
@@ -27,14 +27,16 @@ let _walking   = false;
 let _walkKeys  = {};
 let _normHelper = null;
 let _fpsFrames = 0, _fpsLast = 0;
+let _2dBlobUrl = null;  // tracked so we can revoke it
 
 // ── Init ─────────────────────────────────────
 async function init(canvasId) {
-  // Wait for Three.js globals if still loading
   if (!window.__threeReady) {
     await Promise.race([
       new Promise(res => document.addEventListener('three-ready', res, { once: true })),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('Three.js load timeout')), 15000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error(
+        'Three.js failed to load — check network or try Ctrl+Shift+R'
+      )), 15000))
     ]);
   }
   T  = window.THREE;
@@ -58,8 +60,8 @@ async function init(canvasId) {
 }
 
 // ── Scene / Camera / Renderer ─────────────────
-function buildScene()    { _scene = new T.Scene(); updateBg(); }
-function buildCamera()   {
+function buildScene()   { _scene = new T.Scene(); updateBg(); }
+function buildCamera()  {
   _camera = new T.PerspectiveCamera(45, _canvas.clientWidth / _canvas.clientHeight, 0.001, 100000);
   _camera.position.set(5, 5, 10);
 }
@@ -99,7 +101,7 @@ function startLoop() {
   _fpsLast = performance.now();
   (function loop() {
     _animId = requestAnimationFrame(loop);
-    if (_turntable && _current) _current.rotation.y += 0.005;
+    if (_turntable && _current && !_current._2d) _current.rotation.y += 0.005;
     if (_walking) updateWalk();
     _controls.update();
     _renderer.render(_scene, _camera);
@@ -124,22 +126,32 @@ function onResize() {
 
 // ── Load model ────────────────────────────────
 async function load(meta, arrayBuffer) {
-  // Clear previous
-  if (_current) {
+  // Clear previous 3D object
+  if (_current && !_current._2d) {
     _scene.remove(_current);
     _current.traverse(c => c.geometry?.dispose());
-    _current = null; _origPos.clear();
+    _origPos.clear();
   }
-  _meta = meta;
+  _current = null;
+  _meta    = meta;
   _measurePts = []; _exploded = false;
 
   document.getElementById('stat-file').textContent = meta.name;
   document.getElementById('stat-verts').textContent = '…';
   document.getElementById('stat-faces').textContent = '…';
 
+  // ── 2D path ──────────────────────────────────
+  const L = meta.loader || 'native';
+  if (L === '2d' || L === '2d-svg' || L === '2d-pdf') {
+    await load2D(meta, arrayBuffer);
+    return;
+  }
+
+  // ── Hide 2D viewer, show 3D canvas ───────────
+  hide2DViewer();
+
   try {
     let obj;
-    const L = meta.loader || 'native';
     if      (L === 'native')   obj = await loadNative(meta, arrayBuffer);
     else if (L === 'dxf')      obj = await loadExternal('loader-dxf',   m => m.load(arrayBuffer, T, defaultMat));
     else if (L === 'ifc')      obj = await loadExternal('loader-ifc',   m => m.load(arrayBuffer, T, _scene));
@@ -167,7 +179,7 @@ async function load(meta, arrayBuffer) {
 }
 
 async function loadExternal(loaderName, fn) {
-  const key = '__' + loaderName.replace('-','') + 'Loader';
+  const key = '__' + loaderName.replace(/-/g, '') + 'Loader';
   if (!window[key]) await window.loadMod('modules/loaders/' + loaderName + '.js');
   return fn(window[key]);
 }
@@ -179,8 +191,10 @@ async function loadNative(meta, buf) {
     stl:'STLLoader', obj:'OBJLoader', gltf:'GLTFLoader', glb:'GLTFLoader',
     fbx:'FBXLoader', dae:'ColladaLoader', '3ds':'TDSLoader', ply:'PLYLoader',
     pcd:'PCDLoader', wrl:'VRMLLoader', vrml:'VRMLLoader', vtk:'VTKLoader',
-    off:'OBJLoader'
-    // lwo: LWOLoader removed in r157 | x3d: X3DLoader removed in r152
+    off:'OBJLoader',
+    '3mf':'ThreeMFLoader',
+    amf:'AMFLoader',
+    // lwo/x3d removed in Three.js r157/r152 — handled as fallback in FORMAT_MAP
   };
   const clsName = map[ext];
   if (!clsName || !TL[clsName]) throw new Error('No built-in loader for .' + ext);
@@ -207,19 +221,29 @@ async function loadNative(meta, buf) {
   if (ext === 'fbx') {
     return new Promise((res, rej) => loader.parse(buf, '', o => res(center(o)), rej));
   }
-  // Text-based
+  if (ext === '3mf') {
+    // ThreeMFLoader.parse returns a THREE.Group synchronously
+    const group = loader.parse(buf);
+    return center(group);
+  }
+  if (ext === 'amf') {
+    // AMFLoader.parse returns a THREE.Group
+    const group = loader.parse(buf);
+    return center(group);
+  }
+  // Text-based formats
   const text = new TextDecoder().decode(buf);
-  if (ext === 'dae') return center(loader.parse(text).scene);
+  if (ext === 'dae')              return center(loader.parse(text).scene);
   if (ext === 'wrl' || ext === 'vrml') return center(loader.parse(text));
   if (ext === 'vtk') {
     const geo = loader.parse(text);
     return center(new T.Mesh(geo, defaultMat()));
   }
-  // Generic text fallback
+  // Generic fallback — try text then binary
   try {
     const res = loader.parse(text);
     return center(res.scene || res);
-  } catch(e) {
+  } catch(_) {
     const res2 = loader.parse(buf);
     return center(res2.scene || res2);
   }
@@ -249,9 +273,11 @@ function fitCamera(obj) {
   }
 }
 function storePositions(obj) {
+  if (!obj || obj._2d) return;
   obj.traverse(c => { if (c.isMesh) _origPos.set(c.uuid, c.position.clone()); });
 }
 function updateStats(obj) {
+  if (!obj || obj._2d) return;
   let v = 0, f = 0;
   obj.traverse(c => {
     if (!c.geometry) return;
@@ -269,41 +295,119 @@ function updateStats(obj) {
   document.getElementById('stat-fmt').textContent   = _meta?.fmt || _meta?.ext?.toUpperCase();
 }
 
+// ── 2D Viewer ────────────────────────────────
+const MIME = {
+  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+  gif:'image/gif', bmp:'image/bmp', webp:'image/webp',
+  tiff:'image/tiff', tif:'image/tiff',
+  svg:'image/svg+xml', pdf:'application/pdf'
+};
+
+async function load2D(meta, arrayBuffer) {
+  const vd = document.getElementById('viewer-2d');
+  if (!vd) { window.toast('2D viewer element missing', 'er'); return; }
+
+  // Revoke previous blob
+  if (_2dBlobUrl) { URL.revokeObjectURL(_2dBlobUrl); _2dBlobUrl = null; }
+
+  vd.innerHTML = '';
+
+  const ext = meta.ext.toLowerCase();
+  const L   = meta.loader;
+
+  if (L === '2d-svg') {
+    // Inline SVG
+    const text = new TextDecoder().decode(arrayBuffer);
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'max-width:100%;max-height:100%;overflow:auto;padding:12px';
+    wrap.innerHTML = text;
+    vd.appendChild(wrap);
+  } else if (L === '2d-pdf') {
+    // PDF in iframe
+    const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+    _2dBlobUrl = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;height:100%;border:none';
+    iframe.src = _2dBlobUrl;
+    vd.appendChild(iframe);
+  } else {
+    // Raster image
+    const mime = MIME[ext] || 'image/png';
+    const blob = new Blob([arrayBuffer], { type: mime });
+    _2dBlobUrl = URL.createObjectURL(blob);
+    const img = document.createElement('img');
+    img.src = _2dBlobUrl;
+    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px';
+    img.onload = () => {
+      document.getElementById('stat-dims').textContent = img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+    };
+    vd.appendChild(img);
+  }
+
+  vd.classList.add('active');
+  _current = { _2d: true };
+  _meta    = meta;
+
+  document.getElementById('viewer-drop')?.classList.add('has-file');
+  document.getElementById('btn-analyse').disabled = false;
+  document.getElementById('stat-file').textContent = meta.name;
+  document.getElementById('stat-fmt').textContent  = meta.fmt || ext.toUpperCase();
+  document.getElementById('stat-verts').textContent = '—';
+  document.getElementById('stat-faces').textContent = '—';
+  document.getElementById('stat-dims').textContent  = '2D';
+
+  window.toast('Loaded: ' + meta.name, 'ok', 2000);
+}
+
+function hide2DViewer() {
+  const vd = document.getElementById('viewer-2d');
+  if (vd) vd.classList.remove('active');
+  if (_2dBlobUrl) { URL.revokeObjectURL(_2dBlobUrl); _2dBlobUrl = null; }
+}
+
 // ── Fallback for proprietary ──────────────────
 function showFallback(meta) {
+  hide2DViewer();
   const hint = window.__pandaFiles?.getFormat(meta.name)?.hint || 'Export to an open format first';
   window.toast(`${meta.fmt} is proprietary — ${hint}`, 'nfo', 8000);
   const vd = document.getElementById('viewer-drop');
   if (vd) {
-    vd.querySelector('.dt').textContent = meta.fmt + ' — conversion required';
-    vd.querySelector('.ds').textContent = hint;
+    const dt = vd.querySelector('.dt'); if (dt) dt.textContent = meta.fmt + ' — conversion required';
+    const ds = vd.querySelector('.ds'); if (ds) ds.textContent = hint;
     vd.classList.remove('has-file');
   }
 }
 
 // ── Toolbar commands ──────────────────────────
+const _3D_ONLY = new Set(['t-wire','t-xray','t-normals','t-section','t-explode',
+  't-measure','t-walk','t-turn','t-shadow','t-top','t-front','t-side','t-iso',
+  't-orbit','t-pan','t-fit','t-4view','t-layers']);
+
 function command(id, active) {
+  if (_current?._2d && _3D_ONLY.has(id)) {
+    window.toast('3D tools not available for 2D files', 'nfo', 2000); return;
+  }
   switch(id) {
-    case 't-orbit':  _controls.enabled = true; if (_walking) stopWalk(); break;
-    case 't-pan':    _controls.enableRotate = !active; _controls.enablePan = active; break;
-    case 't-fit':    if (_current) fitCamera(_current); break;
-    case 't-wire':   _wireframe = active; applyToMats(m => m.wireframe = active); break;
-    case 't-xray':   _xray = active; applyToMats(m => { m.transparent = active; m.opacity = active ? .25 : 1; m.depthWrite = !active; }); break;
+    case 't-orbit':   _controls.enabled = true; if (_walking) stopWalk(); break;
+    case 't-pan':     _controls.enableRotate = !active; _controls.enablePan = active; break;
+    case 't-fit':     if (_current && !_current._2d) fitCamera(_current); break;
+    case 't-wire':    _wireframe = active; applyToMats(m => m.wireframe = active); break;
+    case 't-xray':    _xray = active; applyToMats(m => { m.transparent = active; m.opacity = active ? .25 : 1; m.depthWrite = !active; }); break;
     case 't-normals': toggleNormals(active); break;
     case 't-section': toggleSection(active); break;
     case 't-explode': active ? explode() : resetExplode(); break;
     case 't-measure': _measureMode = active; if (!active) clearMeasure(); else window.toast('Click two points to measure', 'nfo', 3000); break;
-    case 't-top':    setCam('top'); break;
-    case 't-front':  setCam('front'); break;
-    case 't-side':   setCam('side'); break;
-    case 't-iso':    setCam('iso'); break;
-    case 't-walk':   active ? startWalk() : stopWalk(); break;
-    case 't-turn':   _turntable = active; break;
-    case 't-grid':   if (_gridHelper) { _gridHelper.visible = active; _axesHelper.visible = active; } break;
-    case 't-shadow': _renderer.shadowMap.enabled = active; _lights.dir1.castShadow = active; break;
-    case 't-layers': showLayers(); break;
-    case 't-shot':   screenshot(); break;
-    case 't-4view':  window.toast('4-viewport coming soon', 'nfo', 2000); break;
+    case 't-top':     setCam('top'); break;
+    case 't-front':   setCam('front'); break;
+    case 't-side':    setCam('side'); break;
+    case 't-iso':     setCam('iso'); break;
+    case 't-walk':    active ? startWalk() : stopWalk(); break;
+    case 't-turn':    _turntable = active; break;
+    case 't-grid':    if (_gridHelper) { _gridHelper.visible = active; _axesHelper.visible = active; } break;
+    case 't-shadow':  _renderer.shadowMap.enabled = active; _lights.dir1.castShadow = active; break;
+    case 't-layers':  showLayers(); break;
+    case 't-shot':    screenshot(); break;
+    case 't-4view':   window.toast('4-viewport coming soon', 'nfo', 2000); break;
   }
 }
 
@@ -316,7 +420,7 @@ function applyToMats(fn) {
 
 function toggleNormals(on) {
   if (_normHelper) { _scene.remove(_normHelper); _normHelper = null; }
-  if (!on || !_current) return;
+  if (!on || !_current || _current._2d) return;
   _current.traverse(c => {
     if (c.isMesh) {
       _normHelper = new TL.VertexNormalsHelper(c, 0.1, 0x00ff00);
@@ -327,7 +431,7 @@ function toggleNormals(on) {
 
 function toggleSection(on) {
   if (!on) { _renderer.clippingPlanes = []; _renderer.localClippingEnabled = false; return; }
-  if (!_current) return;
+  if (!_current || _current._2d) return;
   const mid = new T.Box3().setFromObject(_current).getCenter(new T.Vector3());
   _sectionPlane = new T.Plane(new T.Vector3(0, -1, 0), mid.y);
   _renderer.localClippingEnabled = true;
@@ -339,7 +443,7 @@ function toggleSection(on) {
 }
 
 function explode() {
-  if (!_current) return;
+  if (!_current || _current._2d) return;
   const ctr = new T.Box3().setFromObject(_current).getCenter(new T.Vector3());
   let i = 0;
   _current.traverse(c => {
@@ -352,12 +456,13 @@ function explode() {
   _exploded = true;
 }
 function resetExplode() {
-  _current?.traverse(c => { if (c.isMesh && _origPos.has(c.uuid)) c.position.copy(_origPos.get(c.uuid)); });
+  if (!_current || _current._2d) return;
+  _current.traverse(c => { if (c.isMesh && _origPos.has(c.uuid)) c.position.copy(_origPos.get(c.uuid)); });
   _exploded = false;
 }
 
 function setCam(v) {
-  if (!_current) return;
+  if (!_current || _current._2d) return;
   const box = new T.Box3().setFromObject(_current);
   const ctr = box.getCenter(new T.Vector3());
   const sz  = box.getSize(new T.Vector3());
@@ -368,7 +473,7 @@ function setCam(v) {
 }
 
 function showLayers() {
-  if (!_current) { window.toast('No file loaded', 'nfo'); return; }
+  if (!_current || _current._2d) { window.toast('No 3D file loaded', 'nfo'); return; }
   const names = new Set();
   _current.traverse(c => { if (c.name) names.add(c.name); });
   window.toast(names.size ? 'Layers: ' + [...names].slice(0,6).join(', ') : 'No named layers', 'nfo', 5000);
@@ -376,10 +481,10 @@ function showLayers() {
 
 // ── Measure ───────────────────────────────────
 function onCanvasClick(e) {
-  if (!_measureMode || !_current) return;
+  if (!_measureMode || !_current || _current._2d) return;
   const rect = _canvas.getBoundingClientRect();
   const mouse = new T.Vector2(
-    ((e.clientX - rect.left)  / rect.width ) * 2 - 1,
+    ((e.clientX - rect.left) / rect.width)  * 2 - 1,
     -((e.clientY - rect.top) / rect.height) * 2 + 1
   );
   const ray = new T.Raycaster();
@@ -407,7 +512,7 @@ function clearMeasure() {
 // ── Walk mode ─────────────────────────────────
 function startWalk() {
   _walking = true; _controls.enabled = false;
-  window.toast('Walk: WASD move · Space/Shift up/down · click viewer to lock pointer', 'nfo', 5000);
+  window.toast('Walk: WASD move · Space/Shift up/down · click to lock pointer', 'nfo', 5000);
   _canvas.addEventListener('click', () => { if (_walking) _canvas.requestPointerLock?.(); }, { once: true });
 }
 function stopWalk() {
@@ -418,18 +523,28 @@ function updateWalk() {
   const spd = 0.05;
   const dir = new T.Vector3(); _camera.getWorldDirection(dir);
   const rt  = new T.Vector3().crossVectors(dir, _camera.up).normalize();
-  if (_walkKeys['KeyW']||_walkKeys['ArrowUp'])    _camera.position.addScaledVector(dir,  spd);
-  if (_walkKeys['KeyS']||_walkKeys['ArrowDown'])  _camera.position.addScaledVector(dir, -spd);
-  if (_walkKeys['KeyA']||_walkKeys['ArrowLeft'])  _camera.position.addScaledVector(rt,  -spd);
-  if (_walkKeys['KeyD']||_walkKeys['ArrowRight']) _camera.position.addScaledVector(rt,   spd);
-  if (_walkKeys['Space'])       _camera.position.y += spd;
-  if (_walkKeys['ShiftLeft'])   _camera.position.y -= spd;
+  if (_walkKeys['KeyW']  || _walkKeys['ArrowUp'])    _camera.position.addScaledVector(dir,  spd);
+  if (_walkKeys['KeyS']  || _walkKeys['ArrowDown'])  _camera.position.addScaledVector(dir, -spd);
+  if (_walkKeys['KeyA']  || _walkKeys['ArrowLeft'])  _camera.position.addScaledVector(rt,  -spd);
+  if (_walkKeys['KeyD']  || _walkKeys['ArrowRight']) _camera.position.addScaledVector(rt,   spd);
+  if (_walkKeys['Space'])     _camera.position.y += spd;
+  if (_walkKeys['ShiftLeft']) _camera.position.y -= spd;
 }
 
 // ── Screenshot ────────────────────────────────
 function screenshot() {
-  _renderer.render(_scene, _camera);
   const a = document.createElement('a');
+  if (_current?._2d) {
+    // Screenshot for 2D: capture the 2D viewer
+    const vd  = document.getElementById('viewer-2d');
+    const img = vd?.querySelector('img');
+    if (img) {
+      a.href     = img.src;
+      a.download = (_meta?.name || 'pandaai') + '_screenshot.png';
+      a.click(); return;
+    }
+  }
+  _renderer.render(_scene, _camera);
   a.href     = _canvas.toDataURL('image/png');
   a.download = (_meta?.name || 'pandaai') + '_' + Date.now() + '.png';
   a.click();
@@ -439,6 +554,14 @@ function screenshot() {
 // ── Scene summary (for AI analysis) ──────────
 function getSceneSummary() {
   if (!_current || !_meta) return null;
+  if (_current._2d) {
+    return {
+      filename: _meta.name, format: _meta.fmt || _meta.ext,
+      vertices: 0, faces: 0, meshes: 0, materials: [],
+      dimensions: { x: 0, y: 0, z: 0 }, aspectRatio: { xy: 0, xz: 0 },
+      is2D: true
+    };
+  }
   let v = 0, f = 0, m = 0;
   const mats = new Set();
   _current.traverse(c => {

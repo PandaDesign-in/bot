@@ -170,6 +170,15 @@ async function flush(force) {
   }
 }
 
+// ── Read binary file and decrypt ─────────────
+// Use this for files written with writeBinaryEncrypted (CAD/3D files)
+async function readBinaryEncrypted(path) {
+  const { content, sha } = await readFile(path);
+  const payload = JSON.parse(content);
+  const buf = await window.__pandaCrypto.decryptBinary(payload);
+  return { data: buf, sha };
+}
+
 // ── List files in a folder ────────────────────
 async function listDir(path) {
   try {
@@ -219,7 +228,7 @@ function destroy() {
 window.__pandaSync = {
   init, connect,
   loadGroqKey, saveGroqKey,
-  readFile, readEncrypted,
+  readFile, readEncrypted, readBinaryEncrypted,
   writeFile, writeEncrypted, writeBinaryEncrypted,
   queue, flush,
   listDir, deleteFile, getSha,

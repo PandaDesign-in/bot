@@ -1,80 +1,136 @@
 /* ═══════════════════════════════════════════════
    PandaAI 🐼 — File Store Module
    Virtual encrypted file vault.
-   Files stored encrypted in GitHub /files/
-   File tree rendered in left panel.
+   Raw bytes stored in IndexedDB (no GitHub size limit).
+   File index (metadata) stored encrypted in GitHub /files/index.json.
    Exposes: window.__pandaFiles
 ═══════════════════════════════════════════════ */
 
 (function() {
 'use strict';
 
-// In-memory index: id → { id, name, ext, folder, size, sha, hash, added }
+// In-memory index: id → { id, name, ext, folder, size, sha, hash, added, ... }
 let _index = {};
 let _indexSha = null;
 const INDEX_PATH = 'files/index.json';
 
-// Format detection map
+// ── IndexedDB for raw file bytes ──────────────
+const IDB_NAME  = 'panda_vault';
+const IDB_VER   = 1;
+const IDB_STORE = 'files';
+let _db = null;
+
+async function openDB() {
+  if (_db) return _db;
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess  = e => { _db = e.target.result; res(_db); };
+    req.onerror    = () => rej(req.error);
+  });
+}
+
+async function idbPut(id, buf) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(buf, id);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function idbGet(id) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(id);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+async function idbDelete(id) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+// ── Format detection map ──────────────────────
 const FORMAT_MAP = {
-  // Group A — Three.js native
-  stl:  { group:'A', label:'STL',   icon:'🧊', loader:'native' },
-  obj:  { group:'A', label:'OBJ',   icon:'🧊', loader:'native' },
-  mtl:  { group:'A', label:'MTL',   icon:'🎨', loader:'native' },
-  gltf: { group:'A', label:'GLTF',  icon:'🌐', loader:'native' },
-  glb:  { group:'A', label:'GLB',   icon:'🌐', loader:'native' },
-  fbx:  { group:'A', label:'FBX',   icon:'🧊', loader:'native' },
-  dae:  { group:'A', label:'DAE',   icon:'🧊', loader:'native' },
-  '3ds':{ group:'A', label:'3DS',   icon:'🧊', loader:'native' },
-  ply:  { group:'A', label:'PLY',   icon:'🧊', loader:'native' },
-  pcd:  { group:'A', label:'PCD',   icon:'☁️', loader:'native' },
-  x3d:  { group:'A', label:'X3D',   icon:'🌐', loader:'native' },
-  wrl:  { group:'A', label:'VRML',  icon:'🌐', loader:'native' },
-  vrml: { group:'A', label:'VRML',  icon:'🌐', loader:'native' },
-  vtk:  { group:'A', label:'VTK',   icon:'🧊', loader:'native' },
-  off:  { group:'A', label:'OFF',   icon:'🧊', loader:'native' },
-  lwo:  { group:'A', label:'LWO',   icon:'🧊', loader:'native' },
-  // Group B — WASM
-  dxf:  { group:'B', label:'DXF',   icon:'📐', loader:'dxf'    },
-  ifc:  { group:'B', label:'IFC',   icon:'🏗️', loader:'ifc'    },
-  ifczip:{ group:'B',label:'IFC',   icon:'🏗️', loader:'ifc'    },
-  step: { group:'B', label:'STEP',  icon:'⚙️', loader:'step'   },
-  stp:  { group:'B', label:'STEP',  icon:'⚙️', loader:'step'   },
-  iges: { group:'B', label:'IGES',  icon:'⚙️', loader:'step'   },
-  igs:  { group:'B', label:'IGES',  icon:'⚙️', loader:'step'   },
-  sat:  { group:'B', label:'SAT',   icon:'⚙️', loader:'step'   },
-  dwg:  { group:'B', label:'DWG',   icon:'📐', loader:'dwg'    },
-  '3mf':{ group:'B', label:'3MF',   icon:'🖨️', loader:'native' },
-  amf:  { group:'B', label:'AMF',   icon:'🖨️', loader:'native' },
-  '3dm':{ group:'B', label:'3DM',   icon:'🦏', loader:'3dm'    },
-  skp:  { group:'B', label:'SKP',   icon:'🏠', loader:'native' },
-  usdz: { group:'B', label:'USDZ',  icon:'📦', loader:'native' },
-  usd:  { group:'B', label:'USD',   icon:'📦', loader:'native' },
+  // Group A — Three.js native 3D
+  stl:   { group:'A', label:'STL',    icon:'🧊', loader:'native' },
+  obj:   { group:'A', label:'OBJ',    icon:'🧊', loader:'native' },
+  mtl:   { group:'A', label:'MTL',    icon:'🎨', loader:'native' },
+  gltf:  { group:'A', label:'GLTF',   icon:'🌐', loader:'native' },
+  glb:   { group:'A', label:'GLB',    icon:'🌐', loader:'native' },
+  fbx:   { group:'A', label:'FBX',    icon:'🧊', loader:'native' },
+  dae:   { group:'A', label:'DAE',    icon:'🧊', loader:'native' },
+  '3ds': { group:'A', label:'3DS',    icon:'🧊', loader:'native' },
+  ply:   { group:'A', label:'PLY',    icon:'🧊', loader:'native' },
+  pcd:   { group:'A', label:'PCD',    icon:'☁️', loader:'native' },
+  wrl:   { group:'A', label:'VRML',   icon:'🌐', loader:'native' },
+  vrml:  { group:'A', label:'VRML',   icon:'🌐', loader:'native' },
+  vtk:   { group:'A', label:'VTK',    icon:'🧊', loader:'native' },
+  off:   { group:'A', label:'OFF',    icon:'🧊', loader:'native' },
+  // x3d/lwo removed from Three.js — graceful fallback
+  x3d:   { group:'D', label:'X3D',    icon:'🌐', loader:'fallback', hint:'Export to GLTF or OBJ' },
+  lwo:   { group:'D', label:'LWO',    icon:'🧊', loader:'fallback', hint:'Export to FBX or OBJ from LightWave' },
+  // Group B — WASM / specialised 3D parsers
+  dxf:   { group:'B', label:'DXF',    icon:'📐', loader:'dxf'  },
+  ifc:   { group:'B', label:'IFC',    icon:'🏗️', loader:'ifc'  },
+  ifczip:{ group:'B', label:'IFC',    icon:'🏗️', loader:'ifc'  },
+  step:  { group:'B', label:'STEP',   icon:'⚙️', loader:'step' },
+  stp:   { group:'B', label:'STEP',   icon:'⚙️', loader:'step' },
+  iges:  { group:'B', label:'IGES',   icon:'⚙️', loader:'step' },
+  igs:   { group:'B', label:'IGES',   icon:'⚙️', loader:'step' },
+  sat:   { group:'B', label:'SAT',    icon:'⚙️', loader:'step' },
+  dwg:   { group:'B', label:'DWG',    icon:'📐', loader:'dwg'  },
+  '3mf': { group:'B', label:'3MF',    icon:'🖨️', loader:'native' },
+  amf:   { group:'B', label:'AMF',    icon:'🖨️', loader:'native' },
+  '3dm': { group:'B', label:'3DM',    icon:'🦏', loader:'3dm'  },
+  skp:   { group:'D', label:'SKP',    icon:'🏠', loader:'fallback', hint:'Export to GLTF/DAE from SketchUp' },
+  usdz:  { group:'B', label:'USDZ',   icon:'📦', loader:'native' },
+  usd:   { group:'B', label:'USD',    icon:'📦', loader:'native' },
   // Group C — Point clouds
-  e57:  { group:'C', label:'E57',   icon:'☁️', loader:'cloud'  },
-  las:  { group:'C', label:'LAS',   icon:'☁️', loader:'cloud'  },
-  laz:  { group:'C', label:'LAZ',   icon:'☁️', loader:'cloud'  },
-  xyz:  { group:'C', label:'XYZ',   icon:'☁️', loader:'cloud'  },
-  pts:  { group:'C', label:'PTS',   icon:'☁️', loader:'cloud'  },
-  ptx:  { group:'C', label:'PTX',   icon:'☁️', loader:'cloud'  },
-  // Group D — Proprietary (fallback)
-  rvt:  { group:'D', label:'RVT',   icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
-  rfa:  { group:'D', label:'RFA',   icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
-  blend:{ group:'D', label:'BLEND', icon:'🍊', loader:'fallback', hint:'Export to GLTF from Blender' },
-  max:  { group:'D', label:'MAX',   icon:'🏗️', loader:'fallback', hint:'Export to FBX/OBJ from 3ds Max' },
-  ma:   { group:'D', label:'MA',    icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
-  mb:   { group:'D', label:'MB',    icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
-  sldprt:{ group:'D',label:'SLDPRT',icon:'⚙️',loader:'fallback', hint:'Export to STEP from SolidWorks' },
-  sldasm:{ group:'D',label:'SLDASM',icon:'⚙️',loader:'fallback', hint:'Export to STEP from SolidWorks' },
-  f3d:  { group:'D', label:'F3D',   icon:'⚙️', loader:'fallback', hint:'Export to STEP from Fusion 360' },
-  nwd:  { group:'D', label:'NWD',   icon:'🔍', loader:'fallback', hint:'Export to IFC from Navisworks' },
-  c4d:  { group:'D', label:'C4D',   icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Cinema 4D' },
-  ztl:  { group:'D', label:'ZTL',   icon:'🗿', loader:'fallback', hint:'Export to OBJ from ZBrush' },
-  // Group E — Geo
-  kml:  { group:'E', label:'KML',   icon:'🌍', loader:'geo' },
-  kmz:  { group:'E', label:'KMZ',   icon:'🌍', loader:'geo' },
-  geojson:{ group:'E',label:'GeoJSON',icon:'🌍',loader:'geo'},
-  dem:  { group:'E', label:'DEM',   icon:'⛰️', loader:'geo' },
-  gml:  { group:'E', label:'GML',   icon:'🌍', loader:'geo' },
+  e57:   { group:'C', label:'E57',    icon:'☁️', loader:'cloud' },
+  las:   { group:'C', label:'LAS',    icon:'☁️', loader:'cloud' },
+  laz:   { group:'C', label:'LAZ',    icon:'☁️', loader:'cloud' },
+  xyz:   { group:'C', label:'XYZ',    icon:'☁️', loader:'cloud' },
+  pts:   { group:'C', label:'PTS',    icon:'☁️', loader:'cloud' },
+  ptx:   { group:'C', label:'PTX',    icon:'☁️', loader:'cloud' },
+  // Group D — Proprietary (graceful fallback)
+  rvt:   { group:'D', label:'RVT',    icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
+  rfa:   { group:'D', label:'RFA',    icon:'🏢', loader:'fallback', hint:'Export to IFC from Revit' },
+  blend: { group:'D', label:'BLEND',  icon:'🍊', loader:'fallback', hint:'Export to GLTF from Blender' },
+  max:   { group:'D', label:'MAX',    icon:'🏗️', loader:'fallback', hint:'Export to FBX/OBJ from 3ds Max' },
+  ma:    { group:'D', label:'MA',     icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
+  mb:    { group:'D', label:'MB',     icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Maya' },
+  sldprt:{ group:'D', label:'SLDPRT', icon:'⚙️', loader:'fallback', hint:'Export to STEP from SolidWorks' },
+  sldasm:{ group:'D', label:'SLDASM', icon:'⚙️', loader:'fallback', hint:'Export to STEP from SolidWorks' },
+  f3d:   { group:'D', label:'F3D',    icon:'⚙️', loader:'fallback', hint:'Export to STEP from Fusion 360' },
+  nwd:   { group:'D', label:'NWD',    icon:'🔍', loader:'fallback', hint:'Export to IFC from Navisworks' },
+  c4d:   { group:'D', label:'C4D',    icon:'🎬', loader:'fallback', hint:'Export to FBX/OBJ from Cinema 4D' },
+  ztl:   { group:'D', label:'ZTL',    icon:'🗿', loader:'fallback', hint:'Export to OBJ from ZBrush' },
+  // Group E — Geospatial
+  kml:     { group:'E', label:'KML',     icon:'🌍', loader:'geo' },
+  kmz:     { group:'E', label:'KMZ',     icon:'🌍', loader:'geo' },
+  geojson: { group:'E', label:'GeoJSON', icon:'🌍', loader:'geo' },
+  dem:     { group:'E', label:'DEM',     icon:'⛰️', loader:'geo' },
+  gml:     { group:'E', label:'GML',     icon:'🌍', loader:'geo' },
+  // Group F — 2D Images
+  png:   { group:'F', label:'PNG',    icon:'🖼️', loader:'2d'     },
+  jpg:   { group:'F', label:'JPG',    icon:'🖼️', loader:'2d'     },
+  jpeg:  { group:'F', label:'JPG',    icon:'🖼️', loader:'2d'     },
+  gif:   { group:'F', label:'GIF',    icon:'🖼️', loader:'2d'     },
+  bmp:   { group:'F', label:'BMP',    icon:'🖼️', loader:'2d'     },
+  webp:  { group:'F', label:'WebP',   icon:'🖼️', loader:'2d'     },
+  tiff:  { group:'F', label:'TIFF',   icon:'🖼️', loader:'2d'     },
+  tif:   { group:'F', label:'TIFF',   icon:'🖼️', loader:'2d'     },
+  svg:   { group:'F', label:'SVG',    icon:'📐', loader:'2d-svg' },
+  pdf:   { group:'F', label:'PDF',    icon:'📄', loader:'2d-pdf' },
 };
 
 function getFormat(filename) {
@@ -84,12 +140,13 @@ function getFormat(filename) {
 
 function fmtSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-  return (bytes/1024/1024).toFixed(1) + ' MB';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
 // ── Init ─────────────────────────────────────
 async function init() {
+  await openDB();   // warm up IndexedDB connection
   await loadIndex();
   renderTree();
   console.log('[files] Module ready —', Object.keys(_index).length, 'files in vault');
@@ -113,45 +170,57 @@ async function loadIndex() {
 
 // ── Save index to GitHub ──────────────────────
 async function saveIndex() {
-  const result = await window.__pandaSync.writeEncrypted(
-    INDEX_PATH, _index, _indexSha, '[PandaAI] file index update'
-  );
-  if (result && result.content) _indexSha = result.content.sha;
+  try {
+    const result = await window.__pandaSync.writeEncrypted(
+      INDEX_PATH, _index, _indexSha, '[PandaAI] file index update'
+    );
+    if (result?.content) _indexSha = result.content.sha;
+  } catch(e) {
+    console.warn('[files] Index save failed:', e.message);
+    window.toast('Index sync failed — file saved locally', 'nfo', 3000);
+  }
 }
 
-// ── Add files (from drag-drop or picker) ──────
+// ── Add files (drag-drop or picker) ──────────
 async function add(fileList) {
   for (const file of fileList) {
-    const id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const id  = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     const fmt = getFormat(file.name);
 
     if (fmt.loader === 'fallback') {
       window.toast(`${fmt.label} is proprietary — ${fmt.hint}`, 'nfo', 6000);
-      // Still store it — maybe user wants to keep for reference
+      // Still index it so user can see it in the tree
     }
 
-    const hash = await window.__pandaCrypto.sha256(await file.arrayBuffer());
-    // Check for duplicate by hash
+    const buf  = await file.arrayBuffer();
+    const hash = await window.__pandaCrypto.sha256(buf);
+
+    // Deduplicate by hash
     const existing = Object.values(_index).find(f => f.hash === hash);
     if (existing) {
       window.toast(`"${file.name}" already in vault`, 'nfo', 2500);
       continue;
     }
 
-    const buf = await file.arrayBuffer();
-    const path = `files/${id}.enc`;
-
+    // ── Store in IndexedDB (primary, no size limits) ──
     try {
-      window.toast(`Uploading ${file.name}…`, 'nfo', 2000);
-      await window.__pandaSync.writeBinaryEncrypted(path, buf, null, `[PandaAI] add ${file.name}`);
+      await idbPut(id, buf);
     } catch(e) {
-      window.toast(`Upload failed: ${file.name}`, 'er'); continue;
+      window.toast(`Local save failed: ${e.message}`, 'er'); continue;
+    }
+
+    // ── Try GitHub backup (optional — silently skips if file too large) ──
+    if (fmt.loader !== 'fallback' && fmt.loader !== 'unknown') {
+      window.__pandaSync.writeBinaryEncrypted(
+        `files/${id}.enc`, buf, null, `[PandaAI] add ${file.name}`
+      ).catch(e => console.warn('[files] GitHub backup skipped for', file.name, '—', e.message));
     }
 
     _index[id] = {
-      id, name: file.name, ext: file.name.split('.').pop().toLowerCase(),
+      id, name: file.name,
+      ext: file.name.split('.').pop().toLowerCase(),
       folder: 'root', size: file.size, fmtSize: fmtSize(file.size),
-      hash, path, fmt: fmt.label, icon: fmt.icon, loader: fmt.loader,
+      hash, fmt: fmt.label, icon: fmt.icon, loader: fmt.loader,
       group: fmt.group, added: new Date().toISOString()
     };
 
@@ -159,7 +228,7 @@ async function add(fileList) {
     renderTree();
     window.toast(`Added: ${file.name}`, 'ok', 2000);
 
-    // Auto-open in viewer if it can render
+    // Auto-open renderable files
     if (fmt.loader !== 'fallback' && fmt.loader !== 'unknown') {
       openInViewer(id, buf);
     }
@@ -170,16 +239,25 @@ async function add(fileList) {
 async function openInViewer(id, bufOverride) {
   const meta = _index[id];
   if (!meta) return;
-  if (!window.__pandaRenderer) {
-    await window.loadMod('modules/renderer.js');
-  }
+  if (!window.__pandaRenderer) await window.loadMod('modules/renderer.js');
+
   let buf = bufOverride;
+
   if (!buf) {
-    try {
-      buf = await window.__pandaSync.readEncrypted(meta.path);
-      buf = buf.data; // decryptBinary returns ArrayBuffer
-    } catch(e) {
-      window.toast('Could not load file: ' + e.message, 'er'); return;
+    // 1. Try IndexedDB (fast, local)
+    buf = await idbGet(id);
+
+    if (!buf) {
+      // 2. Fall back to GitHub vault
+      try {
+        window.toast('Fetching from vault…', 'nfo', 3000);
+        const result = await window.__pandaSync.readBinaryEncrypted(`files/${id}.enc`);
+        buf = result.data;
+        // Cache locally for next time
+        await idbPut(id, buf);
+      } catch(e) {
+        window.toast('Could not load file: ' + e.message, 'er'); return;
+      }
     }
   }
 
@@ -192,60 +270,58 @@ async function openInViewer(id, bufOverride) {
   document.getElementById('btn-analyse').disabled = false;
 }
 
-// ── Action: context menu ──────────────────────
+// ── Context-menu actions ──────────────────────
 async function action(act, id) {
   if (act === 'open') { openInViewer(id); return; }
+
   if (act === 'analyse') {
     openInViewer(id);
-    setTimeout(() => window.__pandaAnalysis && window.__pandaAnalysis.run(), 1500);
+    setTimeout(() => window.__pandaAnalysis?.run(), 1500);
     return;
   }
+
   if (act === 'rename') {
     const meta = _index[id];
     const newName = prompt('Rename file:', meta.name);
-    if (newName && newName.trim() && newName !== meta.name) {
+    if (newName?.trim() && newName !== meta.name) {
       _index[id].name = newName.trim();
-      await saveIndex();
-      renderTree();
+      await saveIndex(); renderTree();
     }
     return;
   }
+
   if (act === 'folder') {
     const folders = [...new Set(Object.values(_index).map(f => f.folder))];
-    const f = prompt('Move to folder (or type new folder name):\n' + folders.join(', '), _index[id]?.folder || 'root');
-    if (f && f.trim()) {
-      _index[id].folder = f.trim();
-      await saveIndex();
-      renderTree();
-    }
+    const f = prompt('Move to folder:\n' + folders.join(', '), _index[id]?.folder || 'root');
+    if (f?.trim()) { _index[id].folder = f.trim(); await saveIndex(); renderTree(); }
     return;
   }
+
   if (act === 'delete') {
     const meta = _index[id];
-    if (!confirm(`Delete "${meta.name}" from vault? This cannot be undone.`)) return;
-    try {
-      const sha = await window.__pandaSync.getSha(meta.path);
-      if (sha) await window.__pandaSync.deleteFile(meta.path, sha, `[PandaAI] delete ${meta.name}`);
-    } catch(e) { console.warn('[files] delete enc file:', e.message); }
+    if (!confirm(`Delete "${meta.name}" from vault?`)) return;
+    // Remove from IndexedDB
+    await idbDelete(id).catch(e => console.warn('[files] IDB delete:', e.message));
+    // Remove from GitHub (best effort)
+    window.__pandaSync.getSha(`files/${id}.enc`)
+      .then(sha => sha && window.__pandaSync.deleteFile(`files/${id}.enc`, sha, `[PandaAI] delete ${meta.name}`))
+      .catch(e => console.warn('[files] GitHub delete:', e.message));
     delete _index[id];
-    await saveIndex();
-    renderTree();
+    await saveIndex(); renderTree();
     window.toast(`Deleted: ${meta.name}`, 'ok', 2000);
     return;
   }
 }
 
-// ── Create folder ────────────────────────────
+// ── Create folder (virtual) ───────────────────
 async function newFolder() {
   const name = prompt('New folder name:');
-  if (!name || !name.trim()) return;
-  // Folders are virtual — just update any file or create placeholder
-  window.toast(`Folder "${name.trim()}" created`, 'ok', 2000);
+  if (name?.trim()) window.toast(`Folder "${name.trim()}" created`, 'ok', 2000);
 }
 
 // ── Render file tree ──────────────────────────
 function renderTree() {
-  const tree = document.getElementById('file-tree');
+  const tree  = document.getElementById('file-tree');
   const empty = document.getElementById('tree-empty');
   const files = Object.values(_index);
 
@@ -260,8 +336,7 @@ function renderTree() {
   const folders = {};
   files.forEach(f => {
     const folder = f.folder || 'root';
-    if (!folders[folder]) folders[folder] = [];
-    folders[folder].push(f);
+    (folders[folder] = folders[folder] || []).push(f);
   });
 
   tree.innerHTML = '';
@@ -272,8 +347,7 @@ function renderTree() {
       fEl.innerHTML = `<span class="ti">📁</span><span class="tn">${esc(folder)}</span>`;
       tree.appendChild(fEl);
     }
-
-    items.sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+    items.sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
       const el = document.createElement('div');
       el.className = 'titem' + (folder !== 'root' ? ' indent' : '');
       el.setAttribute('data-id', f.id);
@@ -290,23 +364,16 @@ function renderTree() {
 }
 
 function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Export ───────────────────────────────────
 window.__pandaFiles = {
-  init,
-  add,
-  openInViewer,
-  action,
-  newFolder,
-  renderTree,
-  getFormat,
+  init, add, openInViewer, action, newFolder, renderTree, getFormat,
   get index() { return _index; }
 };
 
-// Wire new-folder button
 document.getElementById('btn-new-folder')?.addEventListener('click', newFolder);
-
 console.log('[files] Module loaded');
 })();

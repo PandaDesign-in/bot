@@ -1,6 +1,14 @@
 {
   "sessions": [
     {
+      "session_id": "2026-16-003",
+      "date": "2026-04-19",
+      "week": "2026-W16",
+      "file": "2026-16-003.json",
+      "summary": "Major fix session — upload (IndexedDB + toB64 fix), render from vault (readBinaryEncrypted), 2D viewer (images/SVG/PDF), analysis refinement chat panel, 3MF/AMF loaders, lwo/x3d to fallback.",
+      "encrypted": false
+    },
+    {
       "session_id": "2026-16-002",
       "date": "2026-04-19",
       "week": "2026-W16",

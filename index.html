@@ -36,13 +36,16 @@
     import { VRMLLoader }         from 'three/addons/loaders/VRMLLoader.js';
     import { VTKLoader }          from 'three/addons/loaders/VTKLoader.js';
     import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
+    import { ThreeMFLoader }       from 'three/addons/loaders/3MFLoader.js';
+    import { AMFLoader }           from 'three/addons/loaders/AMFLoader.js';
     // LWOLoader removed in r157, X3DLoader removed in r152 — not available in r160
 
     window.THREE = THREE;
     window.__TL  = {
       OrbitControls, STLLoader, OBJLoader, MTLLoader, GLTFLoader,
       FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
-      VRMLLoader, VTKLoader, VertexNormalsHelper
+      VRMLLoader, VTKLoader, VertexNormalsHelper,
+      ThreeMFLoader, AMFLoader
     };
     window.__threeReady = true;
     document.dispatchEvent(new Event('three-ready'));
@@ -54,7 +57,7 @@
       --topbar-h: 48px;
       --filetree-w: 240px;
       --chat-w: 320px;
-      --analysis-h: 260px;
+      --analysis-h: 300px;
       --toolbar-h: 40px;
       --statusbar-h: 24px;
       --radius: 6px;
@@ -191,7 +194,9 @@
     #btn-analyse:hover { filter: brightness(1.15); }
     #btn-analyse:disabled { opacity: .4; cursor: not-allowed; filter: none; }
     #btn-analyse.int { background: var(--int); }
-    #analysis-body { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 12.5px; line-height: 1.65; color: var(--t0); }
+    /* Split layout: report left, chat right */
+    #analysis-split { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+    #analysis-body { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 12.5px; line-height: 1.65; color: var(--t0); border-right: 1px solid var(--bd); }
     .aempty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--t2); font-size: 12px; font-style: italic; }
     #analysis-body h3 { font-size: 12.5px; color: var(--acc); margin: 10px 0 5px; font-weight: 700; }
     #analysis-body h3:first-child { margin-top: 0; }
@@ -200,6 +205,30 @@
     #analysis-body li { margin-bottom: 2px; }
     #analysis-body code { background: var(--bg3); padding: 1px 4px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 11px; }
     .fw { color: var(--warn); } .fe { color: var(--err); } .fo { color: var(--ok); }
+    /* Analysis chat panel */
+    #analysis-chat { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); }
+    #achat-hdr { padding: 0 10px; height: 28px; display: flex; align-items: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); border-bottom: 1px solid var(--bd); flex-shrink: 0; gap: 5px; }
+    #achat-msgs { flex: 1; overflow-y: auto; padding: 6px 7px; display: flex; flex-direction: column; gap: 5px; }
+    .achat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 5px; color: var(--t2); font-size: 11px; text-align: center; padding: 10px; }
+    .acmsg { max-width: 96%; padding: 6px 9px; border-radius: var(--radius); font-size: 12px; line-height: 1.5; word-break: break-word; }
+    .acmsg.user { align-self: flex-end; background: var(--acc); color: #fff; border-bottom-right-radius: 2px; }
+    .acmsg.ai { align-self: flex-start; background: var(--bg3); color: var(--t0); border-bottom-left-radius: 2px; }
+    .acmsg h3 { font-size: 12px; color: var(--acc); margin: 6px 0 3px; font-weight: 700; }
+    .acmsg p { margin-bottom: 3px; }
+    .acmsg ul { padding-left: 14px; }
+    .acmsg li { margin-bottom: 1px; }
+    .acmsg code { background: rgba(255,255,255,.12); padding: 1px 3px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 11px; }
+    .acmsg.user code { background: rgba(255,255,255,.25); }
+    #achat-input-row { display: flex; align-items: flex-end; padding: 5px 6px; gap: 4px; border-top: 1px solid var(--bd); flex-shrink: 0; background: var(--bg2); }
+    #achat-in { flex: 1; background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--radius); padding: 5px 8px; color: var(--t0); font-size: 12px; font-family: inherit; resize: none; min-height: 28px; max-height: 70px; outline: none; transition: border-color var(--trans); line-height: 1.4; }
+    #achat-in:focus { border-color: var(--acc); }
+    #achat-in::placeholder { color: var(--t2); }
+    #achat-send { width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--acc); border: none; color: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: filter var(--trans); }
+    #achat-send:hover { filter: brightness(1.15); }
+    #achat-send:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+    /* ── 2D VIEWER OVERLAY ── */
+    #viewer-2d { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: var(--bg0); overflow: auto; z-index: 10; padding: 12px; }
+    #viewer-2d.active { display: flex; }
 
     /* ── SETUP MODAL ── */
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.78); display: flex; align-items: center; justify-content: center; z-index: 9000; backdrop-filter: blur(4px); }
@@ -483,10 +512,12 @@
 
       <div id="viewer-wrap">
         <canvas id="viewer-canvas"></canvas>
+        <!-- 2D viewer overlay (images, SVG, PDF) -->
+        <div id="viewer-2d"></div>
         <div id="viewer-drop">
           <div class="di">🧊</div>
           <div class="dt">Drop a file to visualise</div>
-          <div class="ds">STL · OBJ · GLTF/GLB · FBX · IFC · DWG · DXF · STEP · 3DM · LAS/LAZ · and 50+ more</div>
+          <div class="ds">STL · OBJ · GLTF/GLB · FBX · IFC · DWG · DXF · STEP · 3DM · LAS/LAZ · PNG · SVG · PDF · and 60+ more</div>
         </div>
       </div>
 
@@ -530,7 +561,7 @@
     </aside>
   </div>
 
-  <!-- ANALYSIS BOTTOM -->
+  <!-- ANALYSIS BOTTOM (split: report left · refinement chat right) -->
   <section id="panel-analysis">
     <div id="analysis-hdr">
       <span class="at">🔍 AI Analysis</span>
@@ -539,8 +570,26 @@
       <button id="btn-save-rep" disabled>💾 Save Report</button>
       <button id="btn-analyse" disabled>Analyse File</button>
     </div>
-    <div id="analysis-body">
-      <div class="aempty" id="analysis-empty">Load a file and click <strong>&nbsp;Analyse File&nbsp;</strong> to generate a detailed AI report</div>
+    <div id="analysis-split">
+      <!-- Left: report content -->
+      <div id="analysis-body">
+        <div class="aempty" id="analysis-empty">Load a file and click <strong>&nbsp;Analyse File&nbsp;</strong> to generate a detailed AI report</div>
+      </div>
+      <!-- Right: refinement chat -->
+      <div id="analysis-chat">
+        <div id="achat-hdr">💬 Refine Analysis</div>
+        <div id="achat-msgs">
+          <div class="achat-empty" id="achat-empty">
+            <div style="font-size:18px;opacity:.3">💬</div>
+            <div>Run analysis first</div>
+            <div style="font-size:10.5px;opacity:.55">Then ask to refine, focus on<br>structural issues, change perspective…</div>
+          </div>
+        </div>
+        <div id="achat-input-row">
+          <textarea id="achat-in" placeholder="Ask to refine or focus on…" rows="1" maxlength="2000"></textarea>
+          <button id="achat-send" disabled title="Send (Enter)">➤</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -718,6 +767,27 @@ document.getElementById('btn-analyse').addEventListener('click', () => {
 document.getElementById('btn-save-rep').addEventListener('click', () => {
   if (window.__pandaAnalysis) window.__pandaAnalysis.save();
 });
+
+// ── Analysis refinement chat ─────────────────
+(function wireAChat() {
+  const achatIn   = document.getElementById('achat-in');
+  const achatSend = document.getElementById('achat-send');
+  achatIn.addEventListener('input', () => {
+    achatIn.style.height = 'auto';
+    achatIn.style.height = Math.min(achatIn.scrollHeight, 70) + 'px';
+    achatSend.disabled = !achatIn.value.trim();
+  });
+  achatIn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!achatSend.disabled) achatSend.click(); }
+  });
+  achatSend.addEventListener('click', () => {
+    const msg = achatIn.value.trim();
+    if (!msg) return;
+    achatIn.value = ''; achatIn.style.height = 'auto'; achatSend.disabled = true;
+    if (window.__pandaAnalysis) window.__pandaAnalysis.chatRefine(msg);
+    else toast('Analysis module not ready', 'nfo');
+  });
+})();
 
 // ── Clear chat ───────────────────────────────
 document.getElementById('btn-clr-chat').addEventListener('click', () => {
