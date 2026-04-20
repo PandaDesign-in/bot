@@ -701,7 +701,7 @@ function command(id, active) {
     case 't-normals': toggleNormals(active); break;
     case 't-section': toggleSection(active); break;
     case 't-explode':
-      if (active) { initExplode(); showExplodeSlider(true); applyExplodeScale(0.4); _exploded = true; }
+      if (active) { initExplode(); showExplodeSlider(true); applyExplodeScale(0.5); _exploded = true; }
       else        { resetExplode(); }
       break;
     case 't-measure': _measureMode = active; if (!active) clearMeasure(); else window.toast('Click two points to measure', 'nfo', 3000); break;
@@ -773,7 +773,7 @@ function initExplode() {
     if (dir.length() < unit * 0.01) {
       dir.set(Math.sin(i * 2.4), Math.cos(i * 1.7) * 0.5, Math.cos(i * 2.4));
     }
-    dir.normalize().multiplyScalar(unit); // store as "full scale" direction
+    dir.normalize().multiplyScalar(unit * 5); // full-scale = 5× max model dimension
     const orig = _origPos.get(c.uuid) || c.position.clone();
     _explodeDirs.set(c.uuid, { dir: dir.clone(), orig: orig.clone() });
     i++;
@@ -806,9 +806,9 @@ function showExplodeSlider(visible) {
   bar.classList.toggle('active', visible);
   if (!visible) {
     const sl = document.getElementById('explode-slider');
-    if (sl) sl.value = 40; // reset for next time
+    if (sl) sl.value = 50; // reset for next time
     const pct = document.getElementById('explode-pct');
-    if (pct) pct.textContent = '40%';
+    if (pct) pct.textContent = '50%';
   }
 }
 
