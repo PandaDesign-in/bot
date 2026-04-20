@@ -263,6 +263,48 @@ async function analyseFileChat(reportContext, userMessage) {
   return reply;
 }
 
+// ── Math-er: per-mesh mathematical analysis ───
+async function analyseMeshMath(meshData) {
+  if (!_groqKey) throw new Error('No Groq API key set');
+  updateModelPill('70b');
+
+  const mathP = _charmap?.personas?.math;
+  const modeP = mathP?.modes?.[_mode] || mathP?.modes?.generic;
+  const sysPrompt = modeP?.system_prompt
+    ? modeP.system_prompt + '\n\n' + (_charmap.modes?.[_mode]?.depth_instruction || '')
+    : 'You are The Math-er — a precision mathematical analysis engine for architectural and engineering geometry. Provide exact calculations, material takeoff, cost tables, and structural indicators. Always show your working.';
+
+  const userContent =
+`Perform a complete mathematical analysis of this mesh component.
+
+**Component name:** ${meshData.name}
+**Parent model:** ${meshData.parentModel}
+**Vertices:** ${meshData.vertices.toLocaleString()}
+**Triangular faces:** ${meshData.faces.toLocaleString()}${meshData.isSampled ? ' (geometry is large — quantities below are sampled estimates)' : ''}
+
+**Bounding dimensions (model units):**
+- X (length): ${meshData.dimensions.x}
+- Y (width):  ${meshData.dimensions.y}
+- Z (height): ${meshData.dimensions.z}
+
+**Geometric quantities (${meshData.isSampled ? 'estimated via sampling' : 'exact'}):**
+- Surface area : ${meshData.surfaceArea} sq. model-units
+- Enclosed volume : ${meshData.volume} cu. model-units
+
+**Material on mesh:** ${meshData.material}
+
+Assuming model units are metres, provide:
+1. Full geometric breakdown with section properties
+2. Material quantities for the most likely structural interpretation
+3. Detailed cost table (INR at CPWD 2023 SOR rates + USD at ₹83/$)
+4. Structural complexity score and key risks
+5. Any geometric anomalies or quality flags`;
+
+  const reply = await callGroq(MODELS.analysis, sysPrompt, [{ role: 'user', content: userContent }]);
+  logToSession('math-analysis', reply);
+  return reply;
+}
+
 // ── Generate session summary ──────────────────
 async function generateSummary() {
   if (!_groqKey || _history.length < 2) return null;
@@ -416,13 +458,14 @@ window.__pandaAI = {
   chat,
   analyseFile,
   analyseFileChat,
+  analyseMeshMath,
   startVoice,
   stopVoice,
   generateSummary,
   flushSession,
   appendMsg,
   get history() { return _history; },
-  get persona() { return _persona; }
+  get persona()  { return _persona; }
 };
 
 console.log('[ai] Module loaded');

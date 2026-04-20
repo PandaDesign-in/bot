@@ -28,6 +28,12 @@ let _walkKeys  = {};
 let _normHelper = null;
 let _fpsFrames = 0, _fpsLast = 0;
 let _2dBlobUrl = null;  // tracked so we can revoke it
+// VRay quality render
+let _vray = false;
+let _composer = null;
+let _vrayGround = null;
+// Mesh selection (right-click → Math-er)
+let _selectedMesh = null;
 
 // ── Init ─────────────────────────────────────
 async function init(canvasId) {
@@ -54,6 +60,7 @@ async function init(canvasId) {
   startLoop();
   new ResizeObserver(onResize).observe(_canvas.parentElement);
   _canvas.addEventListener('click', onCanvasClick);
+  _canvas.addEventListener('contextmenu', onCanvasRightClick);
   document.addEventListener('keydown', e => _walkKeys[e.code] = true);
   document.addEventListener('keyup',   e => _walkKeys[e.code] = false);
   console.log('[renderer] Ready');
@@ -67,9 +74,10 @@ function buildCamera()  {
 }
 function buildRenderer() {
   _renderer = new T.WebGLRenderer({ canvas: _canvas, antialias: true, preserveDrawingBuffer: true });
-  _renderer.setPixelRatio(window.devicePixelRatio);
+  _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // cap at 2x for perf
   _renderer.setSize(_canvas.clientWidth, _canvas.clientHeight);
   _renderer.outputColorSpace = T.SRGBColorSpace;
+  _renderer.shadowMap.type = T.PCFSoftShadowMap; // ready for VRay use
 }
 function buildControls() {
   _controls = new TL.OrbitControls(_camera, _renderer.domElement);
@@ -104,7 +112,11 @@ function startLoop() {
     if (_turntable && _current && !_current._2d) _current.rotation.y += 0.005;
     if (_walking) updateWalk();
     _controls.update();
-    _renderer.render(_scene, _camera);
+    if (_vray && _composer) {
+      _composer.render();
+    } else {
+      _renderer.render(_scene, _camera);
+    }
     countFPS();
   })();
 }
@@ -122,6 +134,215 @@ function onResize() {
   _camera.aspect = w / h;
   _camera.updateProjectionMatrix();
   _renderer.setSize(w, h);
+}
+
+// ── STL Web Worker (large files off main thread) ──
+function loadSTLWorker(buf) {
+  return new Promise((res, rej) => {
+    const worker = new Worker('./modules/worker-stl.js');
+    let overlayShown = false;
+    worker.onmessage = function(e) {
+      const { type, pct, positions, normals, triCount } = e.data;
+      if (type === 'progress') {
+        if (!overlayShown) {
+          overlayShown = true;
+          const lo = document.getElementById('loading');
+          if (lo) { lo.style.display = 'flex'; lo.classList.remove('hide'); }
+        }
+        window.setLoadProgress(pct, `Parsing STL: ${pct}%  (${triCount ? Math.round(triCount/1000)+'k triangles' : ''})`);
+        return;
+      }
+      if (type === 'done') {
+        if (overlayShown) window.hideLoading();
+        worker.terminate();
+        const geo = new T.BufferGeometry();
+        geo.setAttribute('position', new T.BufferAttribute(positions, 3));
+        geo.setAttribute('normal',   new T.BufferAttribute(normals, 3));
+        res(center(new T.Mesh(geo, defaultMat())));
+      }
+      if (type === 'error') {
+        if (overlayShown) window.hideLoading();
+        worker.terminate();
+        rej(new Error(e.data.message));
+      }
+    };
+    worker.onerror = e => { if (overlayShown) window.hideLoading(); worker.terminate(); rej(new Error('Worker error: ' + e.message)); };
+    // Transfer buffer to worker (zero-copy — moves ownership, not copy)
+    worker.postMessage({ buffer: buf }, [buf]);
+  });
+}
+
+// ── VRay quality render ────────────────────────
+async function enableVRay() {
+  _renderer.toneMapping         = T.ACESToneMapping;
+  _renderer.toneMappingExposure = 1.15;
+  _renderer.shadowMap.enabled   = true;
+
+  // Better directional light for VRay
+  _lights.dir1.intensity = 1.8;
+  _lights.dir1.castShadow = true;
+  _lights.dir1.shadow.mapSize.set(2048, 2048);
+  _lights.dir1.shadow.bias = -0.0004;
+  _lights.dir1.shadow.normalBias = 0.02;
+  if (_current) {
+    const box = new T.Box3().setFromObject(_current);
+    const sz  = box.getSize(new T.Vector3());
+    const d   = Math.max(sz.x, sz.y, sz.z) * 1.5;
+    const sc  = _lights.dir1.shadow.camera;
+    sc.near = 0.1; sc.far = d * 4;
+    sc.left = -d; sc.right = d; sc.top = d; sc.bottom = -d;
+    sc.updateProjectionMatrix();
+  }
+  _lights.amb.intensity = 0.2;
+
+  // Sky/ground hemisphere light
+  if (!_lights.hemi) {
+    _lights.hemi = new T.HemisphereLight(0xddeeff, 0x553311, 0.7);
+    _scene.add(_lights.hemi);
+  }
+
+  // Shadow-catching ground plane
+  if (!_vrayGround && _current) {
+    const box = new T.Box3().setFromObject(_current);
+    _vrayGround = new T.Mesh(
+      new T.PlaneGeometry(2000, 2000),
+      new T.ShadowMaterial({ opacity: 0.22, transparent: true })
+    );
+    _vrayGround.receiveShadow = true;
+    _vrayGround.rotation.x = -Math.PI / 2;
+    _vrayGround.position.y = box.min.y;
+    _scene.add(_vrayGround);
+  }
+
+  // Enable shadows on loaded model
+  if (_current && !_current._2d) {
+    _current.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  }
+
+  // EffectComposer — SSAO + Bloom (if available)
+  if (TL.EffectComposer && TL.RenderPass && TL.SSAOPass && TL.UnrealBloomPass) {
+    _composer = new TL.EffectComposer(_renderer);
+    _composer.addPass(new TL.RenderPass(_scene, _camera));
+
+    const ssao = new TL.SSAOPass(_scene, _camera, _canvas.clientWidth, _canvas.clientHeight);
+    ssao.kernelRadius = 12;
+    ssao.minDistance  = 0.001;
+    ssao.maxDistance  = 0.08;
+    ssao.output = TL.SSAOPass.OUTPUT.Default;
+    _composer.addPass(ssao);
+
+    const bloom = new TL.UnrealBloomPass(
+      new T.Vector2(_canvas.clientWidth, _canvas.clientHeight),
+      0.2, 0.5, 0.9
+    );
+    _composer.addPass(bloom);
+  }
+
+  _vray = true;
+  window.toast('✨ Quality render: ACES · SSAO · Bloom · Soft shadows · Hemisphere', 'ok', 3000);
+}
+
+function disableVRay() {
+  _renderer.toneMapping         = T.NoToneMapping;
+  _renderer.toneMappingExposure = 1.0;
+  _renderer.shadowMap.enabled   = false;
+  _lights.dir1.castShadow  = false;
+  _lights.dir1.intensity   = 0.8;
+  _lights.amb.intensity    = 0.6;
+  if (_lights.hemi) { _scene.remove(_lights.hemi); _lights.hemi = null; }
+  if (_vrayGround)  { _scene.remove(_vrayGround); _vrayGround.geometry.dispose(); _vrayGround = null; }
+  if (_current && !_current._2d) {
+    _current.traverse(c => { if (c.isMesh) { c.castShadow = false; c.receiveShadow = false; } });
+  }
+  if (_composer) { _composer.dispose(); _composer = null; }
+  _vray = false;
+  window.toast('Standard render', 'nfo', 1500);
+}
+
+// ── Right-click: pick mesh → Math-er ──────────
+function onCanvasRightClick(e) {
+  e.preventDefault();
+  if (!_current || _current._2d) return;
+  const rect  = _canvas.getBoundingClientRect();
+  const mouse = new T.Vector2(
+    ((e.clientX - rect.left) / rect.width)  * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const ray  = new T.Raycaster();
+  ray.setFromCamera(mouse, _camera);
+  const hits = ray.intersectObject(_current, true);
+  if (!hits.length) return;
+
+  _selectedMesh = hits[0].object;
+  // Briefly highlight selection
+  if (_selectedMesh.isMesh) {
+    const origCol = _selectedMesh.material?.color?.getHex?.();
+    if (_selectedMesh.material?.color) {
+      _selectedMesh.material.color.setHex(0x4a9eff);
+      setTimeout(() => { if (_selectedMesh?.material?.color && origCol !== undefined) _selectedMesh.material.color.setHex(origCol); }, 600);
+    }
+  }
+
+  const meshData = extractMeshData(_selectedMesh);
+  if (window.showViewerCtxMenu) window.showViewerCtxMenu(e.clientX, e.clientY, meshData);
+}
+
+function extractMeshData(mesh) {
+  if (!mesh?.geometry) return null;
+  const geo = mesh.geometry;
+  const pos = geo.attributes.position;
+  const idx = geo.index;
+  if (!pos) return null;
+
+  // Bounding box
+  geo.computeBoundingBox();
+  const box  = geo.boundingBox;
+  const size = box.getSize(new T.Vector3());
+
+  const totalFaces = idx ? Math.round(idx.count / 3) : Math.round(pos.count / 3);
+
+  // Cap computation at 100k faces — sample + scale for large meshes
+  const SAMPLE_LIMIT = 100_000;
+  const isSampled    = totalFaces > SAMPLE_LIMIT;
+  const step         = isSampled ? Math.max(1, Math.floor(totalFaces / SAMPLE_LIMIT)) : 1;
+
+  let area = 0, volume = 0, sampled = 0;
+  const a = new T.Vector3(), b = new T.Vector3(), c = new T.Vector3();
+
+  for (let i = 0; i < totalFaces; i += step) {
+    let i0, i1, i2;
+    if (idx) { i0 = idx.getX(i*3); i1 = idx.getX(i*3+1); i2 = idx.getX(i*3+2); }
+    else     { i0 = i*3;           i1 = i*3+1;            i2 = i*3+2; }
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    // Triangle area
+    const ab = b.clone().sub(a), ac = c.clone().sub(a);
+    area += ab.cross(ac).length() / 2;
+    // Signed tetrahedron volume (divergence theorem)
+    volume += a.dot(b.clone().cross(c)) / 6;
+    sampled++;
+  }
+  if (isSampled && sampled > 0) {
+    const s = totalFaces / sampled;
+    area *= s; volume *= s;
+  }
+  volume = Math.abs(volume);
+
+  return {
+    name:        mesh.name || ('mesh_' + mesh.uuid.slice(0,6)),
+    uuid:        mesh.uuid,
+    vertices:    pos.count,
+    faces:       totalFaces,
+    dimensions:  { x: +size.x.toFixed(4), y: +size.y.toFixed(4), z: +size.z.toFixed(4) },
+    surfaceArea: +area.toFixed(4),
+    volume:      +volume.toFixed(4),
+    isSampled,
+    material: Array.isArray(mesh.material)
+      ? mesh.material.map(m => m.name || m.type).join(', ')
+      : (mesh.material?.name || mesh.material?.type || 'MeshPhong'),
+    parentModel: _meta?.name || 'unknown'
+  };
 }
 
 // ── Load model ────────────────────────────────
@@ -227,6 +448,11 @@ async function loadNative(meta, buf) {
   const loader = new TL[clsName]();
 
   if (ext === 'stl') {
+    // Large STL files → parse in Web Worker to keep UI responsive
+    const WORKER_THRESH = 50 * 1024 * 1024; // 50 MB
+    if (buf.byteLength >= WORKER_THRESH && window.Worker) {
+      return loadSTLWorker(buf);
+    }
     const geo = loader.parse(buf);
     geo.computeVertexNormals();
     return center(new T.Mesh(geo, defaultMat()));
@@ -454,7 +680,7 @@ function showFallback(meta) {
 
 // ── Toolbar commands ──────────────────────────
 const _3D_ONLY = new Set(['t-wire','t-xray','t-normals','t-section','t-explode',
-  't-measure','t-walk','t-turn','t-shadow','t-top','t-front','t-side','t-iso',
+  't-measure','t-walk','t-turn','t-shadow','t-vray','t-top','t-front','t-side','t-iso',
   't-orbit','t-pan','t-fit','t-4view','t-layers']);
 
 function command(id, active) {
@@ -479,6 +705,7 @@ function command(id, active) {
     case 't-turn':    _turntable = active; break;
     case 't-grid':    if (_gridHelper) { _gridHelper.visible = active; _axesHelper.visible = active; } break;
     case 't-shadow':  _renderer.shadowMap.enabled = active; _lights.dir1.castShadow = active; break;
+    case 't-vray':    active ? enableVRay() : disableVRay(); break;
     case 't-layers':  showLayers(); break;
     case 't-shot':    screenshot(); break;
     case 't-4view':   window.toast('4-viewport coming soon', 'nfo', 2000); break;
@@ -673,9 +900,10 @@ document.getElementById('btn-theme')?.addEventListener('click', () => setTimeout
 
 // ── Export ───────────────────────────────────
 window.__pandaRenderer = {
-  init, load, command, screenshot, getSceneSummary, onThemeChange,
-  get hasFile() { return !!_current; },
-  get currentMeta() { return _meta; }
+  init, load, command, screenshot, getSceneSummary, onThemeChange, extractMeshData,
+  get hasFile()    { return !!_current; },
+  get currentMeta(){ return _meta; },
+  get selectedMesh(){ return _selectedMesh; }
 };
 
 console.log('[renderer] Module loaded');

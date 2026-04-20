@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v7';
+const VERSION = 'pandaai-v8';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
@@ -28,6 +28,7 @@ const PRECACHE = [
   './modules/loaders/loader-geo.js',
   './modules/loaders/loader-gcode.js',
   './modules/loaders/loader-vox.js',
+  './modules/worker-stl.js',
 ];
 
 // CDN libraries — pre-cached after install
@@ -55,6 +56,14 @@ const CDN_LIBS = [
   'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.js',
   'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_wasm_wrapper.js',
   'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.wasm',
+  // Post-processing (VRay quality render)
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/SSAOPass.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/CopyShader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/LuminosityHighPassShader.js',
   // LWOLoader removed from Three.js r157 — skip
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/FirstPersonControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',

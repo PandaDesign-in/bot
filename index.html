@@ -40,6 +40,10 @@
     import { AMFLoader }           from 'three/addons/loaders/AMFLoader.js';
     import { USDZLoader }          from 'three/addons/loaders/USDZLoader.js';
     import { DRACOLoader }         from 'three/addons/loaders/DRACOLoader.js';
+    import { EffectComposer }      from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass }          from 'three/addons/postprocessing/RenderPass.js';
+    import { SSAOPass }            from 'three/addons/postprocessing/SSAOPass.js';
+    import { UnrealBloomPass }     from 'three/addons/postprocessing/UnrealBloomPass.js';
     // LWOLoader removed in r157, X3DLoader removed in r152 — not available in r160
 
     // Pre-configure DracoLoader — used by GLTFLoader for compressed geometry
@@ -53,7 +57,8 @@
       FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
       VRMLLoader, VTKLoader, VertexNormalsHelper,
       ThreeMFLoader, AMFLoader, USDZLoader,
-      dracoLoader: _draco
+      dracoLoader: _draco,
+      EffectComposer, RenderPass, SSAOPass, UnrealBloomPass
     };
     window.__threeReady = true;
     document.dispatchEvent(new Event('three-ready'));
@@ -319,6 +324,12 @@
 
     /* ── CONTEXT MENU ── */
     #ctxmenu { position: fixed; background: var(--bg3); border: 1px solid var(--bds); border-radius: var(--radius); box-shadow: var(--shad); z-index: 7000; min-width: 155px; overflow: hidden; display: none; }
+    /* Viewer right-click context menu */
+    #viewer-ctxmenu { position: fixed; background: var(--bg2); border: 1px solid var(--bds); border-radius: var(--radius); box-shadow: var(--shad); z-index: 7100; min-width: 170px; overflow: hidden; display: none; }
+    #viewer-ctxmenu .vci-hdr { padding: 4px 12px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--acc); border-bottom: 1px solid var(--bd); }
+    .vci { padding: 7px 13px; font-size: 12.5px; color: var(--t0); cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background var(--trans); }
+    .vci:hover { background: var(--bgh); }
+    .vci:first-child { border-radius: var(--radius) var(--radius) 0 0; }
     .ci { padding: 6px 13px; font-size: 12.5px; color: var(--t0); cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background var(--trans); }
     .ci:hover { background: var(--bgh); }
     .ci.del { color: var(--err); }
@@ -421,6 +432,15 @@
       <button class="pbtn" id="groq-save">Save Key</button>
     </div>
   </div>
+</div>
+
+<!-- VIEWER CONTEXT MENU (right-click on 3D mesh) -->
+<div id="viewer-ctxmenu">
+  <div class="vci" data-va="math">🧮 Send to Math-er</div>
+  <div class="vci" data-va="info">📐 Mesh Info</div>
+  <div class="csep"></div>
+  <div class="vci" data-va="isolate">🔍 Isolate Mesh</div>
+  <div class="vci" data-va="hide">👁 Hide Mesh</div>
 </div>
 
 <!-- CONTEXT MENU -->
@@ -582,6 +602,7 @@
         <!-- Toggles -->
         <button class="tbtn on" id="t-grid" title="Grid">⊞</button>
         <button class="tbtn" id="t-shadow" title="Shadows">☀️</button>
+        <button class="tbtn" id="t-vray" title="Quality render: ACES tone map · SSAO · Bloom · Soft shadows">✨</button>
         <button class="tbtn" id="t-layers" title="Layer visibility">🗂</button>
         <button class="tbtn" id="t-4view" title="4-viewport">⊟</button>
         <div class="tsep"></div>
@@ -1066,6 +1087,66 @@ document.getElementById('btn-clr-chat').addEventListener('click', () => {
   })());
 });
 
+// ── Viewer right-click context menu (Math-er etc.) ──
+(function wireViewerCtx() {
+  const vmenu = document.getElementById('viewer-ctxmenu');
+  let _meshData = null;
+
+  window.showViewerCtxMenu = function(x, y, meshData) {
+    _meshData = meshData;
+    vmenu.style.display = 'block';
+    vmenu.style.left = Math.min(x, window.innerWidth  - 180) + 'px';
+    vmenu.style.top  = Math.min(y, window.innerHeight - 150) + 'px';
+  };
+
+  document.addEventListener('click', () => { vmenu.style.display = 'none'; });
+  document.addEventListener('contextmenu', () => { /* don't close — onCanvasRightClick handles it */ });
+
+  vmenu.querySelectorAll('.vci').forEach(item => {
+    item.addEventListener('click', () => {
+      const act = item.getAttribute('data-va');
+      vmenu.style.display = 'none';
+
+      if (act === 'math') {
+        if (!_meshData) { toast('No mesh selected', 'nfo'); return; }
+        if (window.__pandaAnalysis) window.__pandaAnalysis.analyseMesh(_meshData);
+        else toast('Analysis module not ready', 'nfo');
+      }
+
+      if (act === 'info') {
+        if (!_meshData) return;
+        const d = _meshData;
+        toast(
+          `${d.name} · ${d.faces.toLocaleString()} faces · ` +
+          `${d.dimensions.x}×${d.dimensions.y}×${d.dimensions.z} · ` +
+          `area ${d.surfaceArea} · vol ${d.volume}`,
+          'nfo', 8000
+        );
+      }
+
+      if (act === 'isolate') {
+        if (!window.__pandaRenderer?.selectedMesh) return;
+        const sel = window.__pandaRenderer.selectedMesh;
+        window.__pandaRenderer.currentMeta && window.__pandaRenderer
+          .command && (() => {
+          // Hide everything except selected
+          if (sel._parent || sel.parent) {
+            (sel.parent || sel._parent).traverse(c => {
+              if (c.isMesh && c !== sel) c.visible = false;
+            });
+          }
+          toast('Mesh isolated — use Fit (⊡) to re-frame. Right-click → Isolate again to restore.', 'nfo', 5000);
+        })();
+      }
+
+      if (act === 'hide') {
+        const sel = window.__pandaRenderer?.selectedMesh;
+        if (sel) { sel.visible = false; toast('Mesh hidden', 'nfo', 2000); }
+      }
+    });
+  });
+})();
+
 // ── Context menu ─────────────────────────────
 const ctxMenu = document.getElementById('ctxmenu');
 let ctxTarget = null;
@@ -1166,7 +1247,7 @@ toolBtns.forEach(btn => {
       ['t-orbit','t-pan'].forEach(tid => document.getElementById(tid).classList.toggle('on', tid === id));
     }
     // Toggle display toggles
-    if (['t-wire','t-xray','t-normals','t-grid','t-shadow','t-4view','t-walk','t-turn','t-section','t-explode'].includes(id)) {
+    if (['t-wire','t-xray','t-normals','t-grid','t-shadow','t-4view','t-walk','t-turn','t-section','t-explode','t-vray'].includes(id)) {
       btn.classList.toggle('on');
     }
     window.__pandaRenderer.command(id, btn.classList.contains('on'));

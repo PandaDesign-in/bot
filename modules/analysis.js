@@ -143,6 +143,52 @@ async function save() {
   }
 }
 
+// ── Math-er: analyse selected mesh ───────────
+async function analyseMesh(meshData) {
+  if (!window.__pandaAI) { window.toast('AI not ready', 'nfo'); return; }
+
+  const body     = document.getElementById('analysis-body');
+  const btnSave  = document.getElementById('btn-save-rep');
+  const btnPrint = document.getElementById('btn-print-rep');
+
+  // Auto-expand analysis panel to show report
+  const panel = document.getElementById('panel-analysis');
+  const split  = document.getElementById('analysis-split');
+  split.classList.remove('focus-chat');
+  split.classList.add('focus-report');
+  document.getElementById('btn-focus-report').textContent = '⤡';
+  if (!panel.classList.contains('pan-max')) {
+    panel.classList.add('pan-max');
+    document.getElementById('btn-pan-max').textContent = '⤡';
+    document.getElementById('btn-pan-max').title = 'Restore panel';
+  }
+
+  body.innerHTML = renderSkeleton();
+  btnSave.disabled = true; btnPrint.disabled = true;
+  window.toast(`🧮 Math-er: analysing "${meshData.name}"…`, 'nfo', 90000);
+
+  try {
+    const report = await window.__pandaAI.analyseMeshMath(meshData);
+    _lastReport = report;
+    _lastMeta   = {
+      filename: meshData.name,
+      format:   'Mesh Component',
+      vertices: meshData.vertices,
+      faces:    meshData.faces,
+      dimensions: meshData.dimensions,
+      meshes: 1
+    };
+    body.innerHTML = renderMarkdown(report);
+    btnSave.disabled = false; btnPrint.disabled = false;
+    window.toast('🧮 Math-er analysis complete', 'ok', 2500);
+    window.__pandaAI.appendMsg('assistant',
+      `🧮 Math-er: analysis of "${meshData.name}" complete — see analysis panel.`);
+  } catch(e) {
+    body.innerHTML = `<div class="aempty">🧮 Math-er failed: ${esc(e.message)}</div>`;
+    window.toast('Math-er error: ' + e.message, 'er', 5000);
+  }
+}
+
 // ── Print / PDF report ────────────────────────
 function printReport() {
   if (!_lastReport || !_lastMeta) { window.toast('No report to print', 'nfo'); return; }
@@ -230,6 +276,6 @@ function esc(str) {
 }
 
 // ── Export ───────────────────────────────────
-window.__pandaAnalysis = { init, run, save, chatRefine, printReport };
+window.__pandaAnalysis = { init, run, save, chatRefine, printReport, analyseMesh };
 console.log('[analysis] Module loaded');
 })();
