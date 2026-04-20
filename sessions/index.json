@@ -1,6 +1,14 @@
 {
   "sessions": [
     {
+      "session_id": "2026-17-002",
+      "date": "2026-04-20",
+      "week": "2026-W17",
+      "file": "2026-17-002.json",
+      "summary": "Explode root-cause fix + slider, walk mouse-look, Groq 3-layer auto-load + XOR hardcoded, help page full-text search.",
+      "encrypted": false
+    },
+    {
       "session_id": "2026-17-001",
       "date": "2026-04-20",
       "week": "2026-W17",

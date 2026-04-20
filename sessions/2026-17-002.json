@@ -1,0 +1,23 @@
+{
+  "session_id": "2026-17-002",
+  "started": "2026-04-20T02:00:00Z",
+  "ended": "2026-04-20T04:00:00Z",
+  "encrypted": false,
+  "summary": "Explode slider + root-cause fix, walk mouse-look, Groq auto-load, help page search",
+  "messages": [
+    { "role": "user", "ts": "2026-04-20T02:00:00Z",
+      "content": "the explode still does not work, walk in mode is glitchy, groq api why cant we keep it hardwired inside the code and encrypted, its input is causing so many issues, I want a bar in explode view to scale the explosion in and out" },
+    { "role": "assistant", "ts": "2026-04-20T02:30:00Z",
+      "content": "Diagnosed 3 root causes: (1) GLTF returned g.scene without center() — all meshes cluster at world origin → directions all zero → nothing separates. Fixed: center(g.scene). (2) Explode was one-shot with fixed factor. Rebuilt as initExplode() + applyExplodeScale(t) — pre-computes per-mesh outward directions once, slider applies them at any strength 0-100%. Explode bar shown below toolbar when active. (3) Walk had no mouse-look handler — camera direction never changed. Added _onWalkMouse with yaw/pitch tracking, camera.rotation YXZ order. Walk speed auto-scaled to model size. Groq key: 3-layer fallback (sessionStorage → localStorage → vault → XOR hardcoded), never shows modal again." },
+    { "role": "user", "ts": "2026-04-20T02:35:00Z",
+      "content": "see this is a rendering ai interpreter tool, it should do that properly, parts are to render and ai it, both have issues, this is the key: [REDACTED — Groq API key, not logged per CLAUDE.md security policy]" },
+    { "role": "assistant", "ts": "2026-04-20T02:40:00Z",
+      "content": "Key noted and embedded XOR-obfuscated in boot (56-byte array, XOR'd with 'panda'). Key will auto-load from localStorage → vault → hardcoded fallback. No modal ever. NOTE: key was shared in chat which is logged to this repo — consider regenerating if security is a concern. Committed 5affb7b." },
+    { "role": "user", "ts": "2026-04-20T03:00:00Z",
+      "content": "pause / lets resume im back" },
+    { "role": "user", "ts": "2026-04-20T03:05:00Z",
+      "content": "also I want a search bar for word match in the help section as its huge" },
+    { "role": "assistant", "ts": "2026-04-20T03:30:00Z",
+      "content": "Added full-text search to help.html: search bar in sidebar with live 180ms debounce, yellow highlights all matches, amber highlight + auto-scroll for current result, Enter cycles through matches, match count badge, non-matching sections hidden during search, clear button restores all. Committed d43b941." }
+  ]
+}
