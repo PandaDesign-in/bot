@@ -143,6 +143,53 @@ async function save() {
   }
 }
 
+// ── Print / PDF report ────────────────────────
+function printReport() {
+  if (!_lastReport || !_lastMeta) { window.toast('No report to print', 'nfo'); return; }
+  const persona  = window.__pandaAI?.persona || 'architecture';
+  const generated = new Date().toLocaleString();
+  const dims = _lastMeta.dimensions
+    ? `${_lastMeta.dimensions.x} × ${_lastMeta.dimensions.y} × ${_lastMeta.dimensions.z}`
+    : '—';
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>PandaAI Report — ${esc(_lastMeta.filename)}</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;max-width:820px;margin:36px auto;color:#1a1a1a;font-size:13.5px;line-height:1.75}
+  h1{font-size:21px;border-bottom:2px solid #1a6fd4;padding-bottom:8px;margin-bottom:6px}
+  h3{font-size:13.5px;color:#1a6fd4;margin:14px 0 5px;font-weight:700}
+  .meta{color:#666;font-size:11.5px;margin-bottom:22px;line-height:1.7}
+  p{margin-bottom:5px}ul{padding-left:18px;margin-bottom:5px}li{margin-bottom:2px}
+  code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-family:monospace;font-size:12px}
+  strong{color:#111}.fw{color:#d97706}.fe{color:#dc2626}.fo{color:#16a34a}
+  @media print{body{margin:16px}button{display:none}}
+  .print-btn{margin-top:18px;padding:7px 18px;background:#1a6fd4;color:#fff;border:none;border-radius:5px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>🐼 PandaAI Analysis Report</h1>
+<div class="meta">
+  <strong>File:</strong> ${esc(_lastMeta.filename)} &nbsp;·&nbsp;
+  <strong>Format:</strong> ${esc(_lastMeta.format || '—')} &nbsp;·&nbsp;
+  <strong>Persona:</strong> ${esc(persona)}<br>
+  <strong>Geometry:</strong> ${(_lastMeta.vertices||0).toLocaleString()} verts &nbsp;·&nbsp;
+  ${(_lastMeta.faces||0).toLocaleString()} faces &nbsp;·&nbsp;
+  ${(_lastMeta.meshes||0)} meshes &nbsp;·&nbsp; ${dims}<br>
+  <strong>Generated:</strong> ${esc(generated)}
+</div>
+${renderMarkdown(_lastReport)}
+<button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+</body>
+</html>`;
+  const w = window.open('', '_blank', 'width=920,height=720,menubar=no,toolbar=no');
+  if (!w) { window.toast('Pop-up blocked — allow pop-ups for this site', 'er', 5000); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+}
+
 // ── Simple markdown renderer ──────────────────
 function renderMarkdown(md) {
   if (!md) return '';
@@ -183,6 +230,6 @@ function esc(str) {
 }
 
 // ── Export ───────────────────────────────────
-window.__pandaAnalysis = { init, run, save, chatRefine };
+window.__pandaAnalysis = { init, run, save, chatRefine, printReport };
 console.log('[analysis] Module loaded');
 })();

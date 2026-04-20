@@ -39,14 +39,21 @@
     import { ThreeMFLoader }       from 'three/addons/loaders/3MFLoader.js';
     import { AMFLoader }           from 'three/addons/loaders/AMFLoader.js';
     import { USDZLoader }          from 'three/addons/loaders/USDZLoader.js';
+    import { DRACOLoader }         from 'three/addons/loaders/DRACOLoader.js';
     // LWOLoader removed in r157, X3DLoader removed in r152 — not available in r160
+
+    // Pre-configure DracoLoader — used by GLTFLoader for compressed geometry
+    const _draco = new DRACOLoader();
+    _draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    _draco.preload();
 
     window.THREE = THREE;
     window.__TL  = {
       OrbitControls, STLLoader, OBJLoader, MTLLoader, GLTFLoader,
       FBXLoader, ColladaLoader, PLYLoader, PCDLoader, TDSLoader,
       VRMLLoader, VTKLoader, VertexNormalsHelper,
-      ThreeMFLoader, AMFLoader, USDZLoader
+      ThreeMFLoader, AMFLoader, USDZLoader,
+      dracoLoader: _draco
     };
     window.__threeReady = true;
     document.dispatchEvent(new Event('three-ready'));
@@ -241,7 +248,7 @@
     .fw { color: var(--warn); } .fe { color: var(--err); } .fo { color: var(--ok); }
     /* Analysis chat panel */
     #analysis-chat { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); }
-    #achat-hdr { padding: 0 10px; height: 28px; display: flex; align-items: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); border-bottom: 1px solid var(--bd); flex-shrink: 0; gap: 5px; }
+    #achat-hdr { padding: 0 8px 0 10px; height: 28px; display: flex; align-items: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--t2); border-bottom: 1px solid var(--bd); flex-shrink: 0; gap: 5px; }
     #achat-msgs { flex: 1; overflow-y: auto; padding: 6px 7px; display: flex; flex-direction: column; gap: 5px; }
     .achat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 5px; color: var(--t2); font-size: 11px; text-align: center; padding: 10px; }
     .acmsg { max-width: 96%; padding: 6px 9px; border-radius: var(--radius); font-size: 12px; line-height: 1.5; word-break: break-word; }
@@ -317,6 +324,25 @@
     .ci.del { color: var(--err); }
     .ci.del:hover { background: rgba(248,113,113,.1); }
     .csep { height: 1px; background: var(--bd); margin: 3px 0; }
+
+    /* ── ANALYSIS PANEL MAXIMIZE / SECTION FOCUS ── */
+    /* Full-panel maximize — covers entire app */
+    #panel-analysis.pan-max {
+      position: fixed; inset: 0; z-index: 5500; height: 100vh; border-top: none;
+    }
+    #panel-analysis.pan-max #analysis-hdr { height: 42px; }
+    /* Section focus — hide the other box within the panel */
+    #analysis-split.focus-report #analysis-chat { display: none; }
+    #analysis-split.focus-chat   #analysis-body  { display: none; }
+    #analysis-split.focus-chat   #analysis-chat  { border-left: none; }
+    /* Report body needs relative position for the expand button */
+    #analysis-body { position: relative; }
+    #btn-focus-report {
+      position: absolute; top: 6px; right: 6px;
+      width: 20px; height: 20px; font-size: 11px; z-index: 5;
+    }
+    /* Compact style for section-header buttons */
+    .sh-btn { width: 20px; height: 20px; font-size: 11px; }
 
     /* ── SETTINGS SIDE PANEL ── */
     #settings { position: fixed; top: var(--topbar-h); right: 0; width: 320px; height: calc(100vh - var(--topbar-h)); background: var(--bg2); border-left: 1px solid var(--bds); box-shadow: var(--shad); z-index: 6000; transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column; overflow: hidden; }
@@ -619,17 +645,20 @@
       <span class="at">🔍 AI Analysis</span>
       <span id="analysis-ptag">Architecture Mode</span>
       <div class="spacer"></div>
-      <button id="btn-save-rep" disabled>💾 Save Report</button>
+      <button id="btn-save-rep" disabled>💾 Save</button>
+      <button id="btn-print-rep" disabled title="Open print / PDF view">🖨 PDF</button>
       <button id="btn-analyse" disabled>Analyse File</button>
+      <button class="ibtn" id="btn-pan-max" title="Maximise panel">⤢</button>
     </div>
     <div id="analysis-split">
       <!-- Left: report content -->
       <div id="analysis-body">
+        <button class="ibtn" id="btn-focus-report" title="Expand report">⤢</button>
         <div class="aempty" id="analysis-empty">Load a file and click <strong>&nbsp;Analyse File&nbsp;</strong> to generate a detailed AI report</div>
       </div>
       <!-- Right: refinement chat -->
       <div id="analysis-chat">
-        <div id="achat-hdr">💬 Refine Analysis</div>
+        <div id="achat-hdr">💬 Refine Analysis<div style="flex:1"></div><button class="ibtn sh-btn" id="btn-focus-chat" title="Expand chat">⤢</button></div>
         <div id="achat-msgs">
           <div class="achat-empty" id="achat-empty">
             <div style="font-size:18px;opacity:.3">💬</div>
@@ -962,6 +991,69 @@ document.getElementById('btn-save-rep').addEventListener('click', () => {
     else toast('Analysis module not ready', 'nfo');
   });
 })();
+
+// ── Analysis panel maximize / section focus ──
+(function wireAnalysisExpand() {
+  const panel     = document.getElementById('panel-analysis');
+  const split     = document.getElementById('analysis-split');
+  const btnPanMax = document.getElementById('btn-pan-max');
+  const btnReport = document.getElementById('btn-focus-report');
+  const btnChat   = document.getElementById('btn-focus-chat');
+
+  // Whole-panel maximize
+  btnPanMax.addEventListener('click', () => {
+    const isMax = panel.classList.toggle('pan-max');
+    btnPanMax.textContent = isMax ? '⤡' : '⤢';
+    btnPanMax.title       = isMax ? 'Restore panel' : 'Maximise panel';
+    // Clear section focus when restoring
+    if (!isMax) {
+      split.classList.remove('focus-report', 'focus-chat');
+      btnReport.textContent = '⤢';
+      btnChat.textContent   = '⤢';
+    }
+  });
+
+  // Expand report (hides chat within the panel)
+  btnReport.addEventListener('click', () => {
+    const isFocus = split.classList.toggle('focus-report');
+    split.classList.remove('focus-chat');
+    btnReport.textContent = isFocus ? '⤡' : '⤢';
+    btnChat.textContent   = '⤢';
+    // Auto-maximize panel so there's room
+    if (isFocus && !panel.classList.contains('pan-max')) {
+      panel.classList.add('pan-max');
+      btnPanMax.textContent = '⤡';
+      btnPanMax.title = 'Restore panel';
+    }
+  });
+
+  // Expand chat (hides report within the panel)
+  btnChat.addEventListener('click', () => {
+    const isFocus = split.classList.toggle('focus-chat');
+    split.classList.remove('focus-report');
+    btnChat.textContent   = isFocus ? '⤡' : '⤢';
+    btnReport.textContent = '⤢';
+    if (isFocus && !panel.classList.contains('pan-max')) {
+      panel.classList.add('pan-max');
+      btnPanMax.textContent = '⤡';
+      btnPanMax.title = 'Restore panel';
+    }
+  });
+})();
+
+// ── Print / PDF report ────────────────────────
+document.getElementById('btn-print-rep').addEventListener('click', () => {
+  if (window.__pandaAnalysis) window.__pandaAnalysis.printReport();
+  else toast('Analysis module not ready', 'nfo');
+});
+
+// Enable PDF button when report is ready (same gate as save button)
+const _origAnalysisRun = null;
+// Watch btn-save-rep disability state to mirror onto btn-print-rep
+new MutationObserver(() => {
+  const saveDisabled = document.getElementById('btn-save-rep').disabled;
+  document.getElementById('btn-print-rep').disabled = saveDisabled;
+}).observe(document.getElementById('btn-save-rep'), { attributes: true, attributeFilter: ['disabled'] });
 
 // ── Clear chat ───────────────────────────────
 document.getElementById('btn-clr-chat').addEventListener('click', () => {

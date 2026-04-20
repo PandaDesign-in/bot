@@ -126,6 +126,13 @@ function onResize() {
 
 // ── Load model ────────────────────────────────
 async function load(meta, arrayBuffer) {
+  // Warn user before main-thread parse of large files
+  const mb = arrayBuffer ? (arrayBuffer.byteLength / 1048576).toFixed(0) : 0;
+  if (mb >= 30) {
+    window.toast(`Parsing ${mb} MB — browser may be unresponsive briefly…`, 'nfo', 90000);
+    // Yield one frame so the toast renders before the synchronous parse
+    await new Promise(r => setTimeout(r, 60));
+  }
   // Clear previous 3D object
   if (_current && !_current._2d) {
     _scene.remove(_current);
@@ -235,10 +242,23 @@ async function loadNative(meta, buf) {
     return center(loader.parse(buf));
   }
   if (ext === 'gltf' || ext === 'glb') {
-    return new Promise((res, rej) => loader.parse(buf, '', g => res(g.scene), rej));
+    // Attach Draco decoder so compressed geometry renders correctly
+    if (TL.dracoLoader) loader.setDRACOLoader(TL.dracoLoader);
+    const blob = new Blob([buf]);
+    const url  = URL.createObjectURL(blob);
+    return new Promise((res, rej) => {
+      loader.load(url, g => { URL.revokeObjectURL(url); res(g.scene); },
+        null, e => { URL.revokeObjectURL(url); rej(e); });
+    });
   }
   if (ext === 'fbx') {
-    return new Promise((res, rej) => loader.parse(buf, '', o => res(center(o)), rej));
+    // Object URL lets the loader resolve embedded texture paths correctly
+    const blob = new Blob([buf]);
+    const url  = URL.createObjectURL(blob);
+    return new Promise((res, rej) => {
+      loader.load(url, o => { URL.revokeObjectURL(url); res(center(o)); },
+        null, e => { URL.revokeObjectURL(url); rej(e); });
+    });
   }
   if (ext === '3mf') {
     const group = loader.parse(buf);
@@ -498,14 +518,23 @@ function toggleSection(on) {
 
 function explode() {
   if (!_current || _current._2d) return;
-  const ctr = new T.Box3().setFromObject(_current).getCenter(new T.Vector3());
+  const box = new T.Box3().setFromObject(_current);
+  const ctr = box.getCenter(new T.Vector3());
+  const sz  = box.getSize(new T.Vector3());
+  // Scale explosion relative to model size so it looks right for any unit system
+  const factor = Math.max(sz.x, sz.y, sz.z) * 0.4 || 1.5;
   let i = 0;
   _current.traverse(c => {
     if (!c.isMesh) return;
+    // Use WORLD position so direction is correct for any scene hierarchy
+    const wp  = new T.Vector3();
+    c.getWorldPosition(wp);
+    const dir = wp.clone().sub(ctr);
+    if (dir.length() < 0.001) dir.set(Math.sin(i * 1.3), Math.cos(i * 0.7), Math.sin(i));
+    dir.normalize();
     const orig = _origPos.get(c.uuid) || c.position.clone();
-    const dir  = c.position.clone().sub(ctr).normalize();
-    if (dir.length() < .01) dir.set(Math.sin(i), 0, Math.cos(i));
-    c.position.copy(orig).add(dir.multiplyScalar(1.5)); i++;
+    c.position.copy(orig).add(dir.multiplyScalar(factor));
+    i++;
   });
   _exploded = true;
 }

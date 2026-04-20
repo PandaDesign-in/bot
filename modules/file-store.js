@@ -239,6 +239,32 @@ async function saveIndex() {
   }
 }
 
+// ── Read file with progress for large files ───
+function readFileWithProgress(file) {
+  return new Promise((res, rej) => {
+    const LARGE = 30 * 1024 * 1024; // 30 MB threshold
+    if (file.size > LARGE) {
+      window.setLoadProgress(0, `Reading ${fmtSize(file.size)}…`);
+      // Bring loading overlay back (it was hidden after boot)
+      const lo = document.getElementById('loading');
+      if (lo) { lo.style.display = 'flex'; lo.classList.remove('hide'); }
+    }
+    const reader = new FileReader();
+    reader.onprogress = e => {
+      if (file.size > LARGE && e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 100);
+        window.setLoadProgress(pct, `Reading ${fmtSize(file.size)}: ${pct}%`);
+      }
+    };
+    reader.onload = e => {
+      if (file.size > LARGE) window.hideLoading();
+      res(e.target.result);
+    };
+    reader.onerror = () => rej(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 // ── Add files (drag-drop or picker) ──────────
 async function add(fileList) {
   for (const file of fileList) {
@@ -250,7 +276,7 @@ async function add(fileList) {
       // Still index it so user can see it in the tree
     }
 
-    const buf  = await file.arrayBuffer();
+    const buf  = await readFileWithProgress(file);
     const hash = await window.__pandaCrypto.sha256(buf);
 
     // Deduplicate by hash

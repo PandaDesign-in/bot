@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v6';
+const VERSION = 'pandaai-v7';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
@@ -50,6 +50,11 @@ const CDN_LIBS = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/3MFLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/AMFLoader.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/USDZLoader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/DRACOLoader.js',
+  // Draco decoder WASM (loaded by DRACOLoader at runtime)
+  'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.js',
+  'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_wasm_wrapper.js',
+  'https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.wasm',
   // LWOLoader removed from Three.js r157 — skip
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/FirstPersonControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js',
