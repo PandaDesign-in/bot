@@ -27,10 +27,29 @@ body{background:var(--bg0);color:var(--t0);font-family:var(--font);line-height:1
   position:sticky;top:0;height:100vh;overflow-y:auto;
   display:flex;flex-direction:column;padding:0 0 24px;flex-shrink:0;
 }
-.sb-logo{display:flex;align-items:center;gap:9px;padding:20px 16px 14px;
+.sb-logo{display:flex;align-items:center;gap:9px;padding:16px 16px 12px;
   font-size:16px;font-weight:700;border-bottom:1px solid var(--bd);}
 .sb-logo span{font-size:26px}
 .sb-ver{font-size:10px;color:var(--t2);margin-top:1px}
+/* Search */
+.sb-search-wrap{padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#sb-search{width:100%;background:var(--bg3);border:1px solid var(--bd);border-radius:5px;
+  padding:6px 10px 6px 28px;color:var(--t0);font-size:12px;font-family:inherit;outline:none;
+  transition:border-color .15s;position:relative}
+#sb-search:focus{border-color:var(--acc)}
+#sb-search::placeholder{color:var(--t2)}
+.sb-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);
+  font-size:12px;color:var(--t2);pointer-events:none}
+.sb-search-rel{position:relative}
+#sb-clear{display:none;position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--t2);cursor:pointer;font-size:13px;line-height:1;padding:0}
+#sb-clear.vis{display:block}
+#search-count{font-size:10.5px;color:var(--t2);padding:3px 10px 0;min-height:16px}
+/* Highlight */
+mark.sh{background:rgba(251,191,36,.35);color:var(--t0);border-radius:2px;padding:0 1px}
+mark.sh.cur{background:rgba(251,191,36,.75);color:#000}
+/* Hidden sections during search */
+.search-hide{display:none!important}
 .sb-section{padding:14px 14px 4px;font-size:10px;font-weight:700;
   text-transform:uppercase;letter-spacing:.9px;color:var(--t2)}
 .sb-link{display:flex;align-items:center;gap:8px;padding:6px 16px;
@@ -158,6 +177,15 @@ section{margin-bottom:48px}
       <div>PandaAI</div>
       <div class="sb-ver">User Guide v3.0</div>
     </div>
+  </div>
+
+  <div class="sb-search-wrap">
+    <div class="sb-search-rel">
+      <span class="sb-search-icon">🔍</span>
+      <input id="sb-search" type="search" placeholder="Search help…" autocomplete="off" spellcheck="false">
+      <button id="sb-clear" title="Clear">✕</button>
+    </div>
+    <div id="search-count"></div>
   </div>
 
   <div class="sb-section">Getting Started</div>
@@ -883,21 +911,128 @@ section{margin-bottom:48px}
 </main>
 
 <script>
-// Sidebar active link highlight on scroll
-const sections = document.querySelectorAll('section[id]');
-const links     = document.querySelectorAll('.sb-link');
+// ── Sidebar scroll-highlight ──────────────────
+const _secs  = document.querySelectorAll('section[id]');
+const _links = document.querySelectorAll('.sb-link');
+const _main  = document.getElementById('main');
+
 function updateActive() {
-  let current = '';
-  sections.forEach(sec => {
-    if (window.scrollY >= sec.offsetTop - 80) current = sec.id;
-  });
-  links.forEach(l => {
-    const href = l.getAttribute('href')?.replace('#','');
-    l.classList.toggle('active', href === current);
+  let cur = '';
+  _secs.forEach(s => { if (_main.scrollTop >= s.offsetTop - 90) cur = s.id; });
+  _links.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href')?.replace('#','') === cur);
   });
 }
-window.addEventListener('scroll', updateActive, { passive: true });
+_main.addEventListener('scroll', updateActive, { passive: true });
 updateActive();
+
+// ── Search ────────────────────────────────────
+const _input   = document.getElementById('sb-search');
+const _clrBtn  = document.getElementById('sb-clear');
+const _count   = document.getElementById('search-count');
+let _marks     = [];  // NodeList of current mark.sh elements
+let _curIdx    = -1;
+
+// Walk the DOM and highlight text matches
+function doSearch(q) {
+  clearHighlights();
+  _clrBtn.classList.toggle('vis', q.length > 0);
+
+  if (q.length < 2) {
+    _count.textContent = '';
+    _secs.forEach(s => s.classList.remove('search-hide'));
+    return;
+  }
+
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+
+  // Which sections contain a match?
+  const matched = new Set();
+  _secs.forEach(s => {
+    if (re.test(s.textContent)) matched.add(s.id);
+    re.lastIndex = 0;
+  });
+
+  // Show/hide sections
+  _secs.forEach(s => s.classList.toggle('search-hide', !matched.has(s.id)));
+
+  // Walk text nodes in visible sections and wrap matches in <mark>
+  matched.forEach(id => {
+    const sec = document.getElementById(id);
+    walkAndHighlight(sec, re);
+  });
+
+  _marks = Array.from(document.querySelectorAll('mark.sh'));
+  _curIdx = _marks.length > 0 ? 0 : -1;
+  updateCurrent();
+
+  const n = _marks.length;
+  _count.textContent = n === 0 ? 'No results' : `${n} match${n > 1 ? 'es' : ''}`;
+  if (_marks.length) _marks[0].scrollIntoView({ block:'center', behavior:'smooth' });
+}
+
+function walkAndHighlight(node, re) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent;
+    re.lastIndex = 0;
+    if (!re.test(text)) return;
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const mark = document.createElement('mark');
+      mark.className = 'sh';
+      mark.textContent = m[0];
+      frag.appendChild(mark);
+      last = re.lastIndex;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+    return;
+  }
+  // Skip script/style/mark nodes
+  if (['SCRIPT','STYLE','MARK','INPUT','BUTTON'].includes(node.nodeName)) return;
+  // Clone childNodes because we may modify during iteration
+  Array.from(node.childNodes).forEach(child => walkAndHighlight(child, re));
+}
+
+function updateCurrent() {
+  _marks.forEach((m, i) => m.classList.toggle('cur', i === _curIdx));
+}
+
+function clearHighlights() {
+  // Unwrap all mark.sh elements
+  document.querySelectorAll('mark.sh').forEach(m => {
+    const parent = m.parentNode;
+    parent.replaceChild(document.createTextNode(m.textContent), m);
+    parent.normalize();
+  });
+  _marks = []; _curIdx = -1;
+}
+
+// Navigate results with Enter key
+_input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && _marks.length > 0) {
+    _curIdx = (_curIdx + 1) % _marks.length;
+    updateCurrent();
+    _marks[_curIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    e.preventDefault();
+  }
+});
+
+// Debounced input handler
+let _timer;
+_input.addEventListener('input', () => {
+  clearTimeout(_timer);
+  _timer = setTimeout(() => doSearch(_input.value.trim()), 180);
+});
+
+_clrBtn.addEventListener('click', () => {
+  _input.value = '';
+  doSearch('');
+  _input.focus();
+});
 </script>
 </body>
 </html>
