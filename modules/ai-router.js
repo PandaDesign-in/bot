@@ -296,7 +296,7 @@ async function analyseMeshMath(meshData) {
 Assuming model units are metres, provide:
 1. Full geometric breakdown with section properties
 2. Material quantities for the most likely structural interpretation
-3. Detailed cost table (INR at CPWD 2023 SOR rates + USD at ₹83/$)
+3. Detailed cost table in ₹ INR using CPWD 2023 Delhi SOR rates (INR ONLY — no USD)
 4. Structural complexity score and key risks
 5. Any geometric anomalies or quality flags`;
 

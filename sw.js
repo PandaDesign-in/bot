@@ -5,7 +5,7 @@
    Only network calls during a session: Groq API + GitHub API.
 ═══════════════════════════════════════════════ */
 
-const VERSION = 'pandaai-v8';
+const VERSION = 'pandaai-v9';
 
 // All app shell files to pre-cache on install
 const PRECACHE = [
@@ -29,6 +29,7 @@ const PRECACHE = [
   './modules/loaders/loader-gcode.js',
   './modules/loaders/loader-vox.js',
   './modules/worker-stl.js',
+  './help.html',
 ];
 
 // CDN libraries — pre-cached after install

@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🐼 PandaAI — Help & User Guide</title>
+<style>
+:root {
+  --bg0:#0a0a0a;--bg1:#111;--bg2:#161616;--bg3:#1e1e1e;--bg4:#242424;
+  --bd:#2a2a2a;--bds:#3a3a3a;
+  --t0:#ebebeb;--t1:#aaa;--t2:#666;
+  --acc:#4a9eff;--ok:#4ade80;--warn:#fbbf24;--err:#f87171;
+  --math:#10b981;--int:#e8a87c;--struct:#f87171;--civil:#fb923c;
+  --land:#4ade80;--mep:#a78bfa;--contr:#fbbf24;--urb:#38bdf8;
+  --sust:#22c55e;--fire:#ef4444;--aco:#c084fc;--cli:#f59e0b;
+  --sidebar-w:240px;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg0);color:var(--t0);font-family:var(--font);line-height:1.7;display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+#sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);
+  background:var(--bg1);border-right:1px solid var(--bd);
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  display:flex;flex-direction:column;padding:0 0 24px;flex-shrink:0;
+}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:20px 16px 14px;
+  font-size:16px;font-weight:700;border-bottom:1px solid var(--bd);}
+.sb-logo span{font-size:26px}
+.sb-ver{font-size:10px;color:var(--t2);margin-top:1px}
+.sb-section{padding:14px 14px 4px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.9px;color:var(--t2)}
+.sb-link{display:flex;align-items:center;gap:8px;padding:6px 16px;
+  font-size:12.5px;color:var(--t1);text-decoration:none;
+  border-radius:4px;margin:1px 6px;transition:all .15s}
+.sb-link:hover{background:var(--bg3);color:var(--t0)}
+.sb-link.active{background:rgba(74,158,255,.12);color:var(--acc)}
+.sb-icon{font-size:14px;width:16px;flex-shrink:0}
+
+/* ── Main ── */
+#main{flex:1;overflow-y:auto;max-width:1100px;padding:40px 48px 80px}
+@media(max-width:900px){#main{padding:24px 20px 60px}#sidebar{display:none}}
+
+/* ── Typography ── */
+h1{font-size:28px;font-weight:800;margin-bottom:6px;letter-spacing:-.4px}
+h2{font-size:20px;font-weight:700;margin:40px 0 12px;color:var(--t0);
+  padding-bottom:8px;border-bottom:1px solid var(--bd)}
+h3{font-size:15px;font-weight:700;margin:24px 0 8px;color:var(--acc)}
+h4{font-size:13.5px;font-weight:700;margin:16px 0 6px;color:var(--t1)}
+p{margin-bottom:10px;color:var(--t1);font-size:13.5px}
+strong{color:var(--t0)}
+code{background:var(--bg3);border:1px solid var(--bd);padding:1px 6px;
+  border-radius:4px;font-family:'Consolas','Courier New',monospace;font-size:12px;color:var(--acc)}
+.lead{font-size:15px;color:var(--t1);margin-bottom:24px;line-height:1.8}
+
+/* ── Tables ── */
+.tbl-wrap{overflow-x:auto;margin:14px 0 22px;border-radius:8px;border:1px solid var(--bd)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--bg3);padding:9px 13px;text-align:left;
+  font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--bd);transition:background .12s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg2)}
+td{padding:8px 13px;vertical-align:top;color:var(--t1)}
+td:first-child{font-weight:600;color:var(--t0)}
+.tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.tag-a{background:rgba(74,158,255,.15);color:var(--acc);border:1px solid rgba(74,158,255,.3)}
+.tag-b{background:rgba(251,191,36,.15);color:var(--warn);border:1px solid rgba(251,191,36,.3)}
+.tag-c{background:rgba(74,222,128,.15);color:var(--ok);border:1px solid rgba(74,222,128,.3)}
+.tag-d{background:rgba(248,113,113,.15);color:var(--err);border:1px solid rgba(248,113,113,.3)}
+.tag-e{background:rgba(56,189,248,.15);color:var(--urb);border:1px solid rgba(56,189,248,.3)}
+.tag-f{background:rgba(192,132,252,.15);color:var(--aco);border:1px solid rgba(192,132,252,.3)}
+.tag-g{background:rgba(251,146,60,.15);color:var(--civil);border:1px solid rgba(251,146,60,.3)}
+.tag-h{background:rgba(250,204,21,.15);color:var(--contr);border:1px solid rgba(250,204,21,.3)}
+.inr{color:var(--ok);font-weight:600}
+
+/* ── Workflow ── */
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:0;margin:20px 0 28px}
+.flow-step{background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;
+  padding:10px 14px;font-size:12.5px;min-width:110px;text-align:center;line-height:1.5}
+.flow-step .fs-icon{font-size:20px;display:block;margin-bottom:4px}
+.flow-step .fs-label{color:var(--t0);font-weight:600}
+.flow-step .fs-sub{color:var(--t2);font-size:11px}
+.flow-arrow{font-size:18px;color:var(--t2);padding:0 6px;flex-shrink:0}
+.flow-step.acc{border-color:var(--acc);background:rgba(74,158,255,.08)}
+.flow-step.math{border-color:var(--math);background:rgba(16,185,129,.08)}
+.flow-step.ok{border-color:var(--ok);background:rgba(74,222,128,.08)}
+
+/* ── Cards ── */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:14px 0 24px}
+.card{background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;padding:13px 14px;transition:border-color .15s}
+.card:hover{border-color:var(--bds)}
+.card-emoji{font-size:22px;margin-bottom:6px}
+.card-name{font-size:13px;font-weight:700;color:var(--t0);margin-bottom:3px}
+.card-tag{font-size:11px;color:var(--t2);line-height:1.5}
+.card-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:6px;display:inline-block}
+
+/* ── Callouts ── */
+.callout{border-radius:8px;padding:13px 16px;margin:14px 0;font-size:13px;line-height:1.7}
+.callout-info{background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25);color:var(--t1)}
+.callout-warn{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);color:var(--t1)}
+.callout-ok{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.25);color:var(--t1)}
+.callout-math{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);color:var(--t1)}
+.callout strong{color:var(--t0)}
+.callout-icon{font-size:16px;margin-right:6px}
+
+/* ── Steps list ── */
+.steps{counter-reset:step;display:flex;flex-direction:column;gap:12px;margin:14px 0 22px}
+.step{display:flex;gap:14px;align-items:flex-start}
+.step-num{counter-increment:step;content:counter(step);min-width:28px;height:28px;
+  border-radius:50%;background:var(--acc);color:#fff;font-weight:700;font-size:13px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-num::before{content:counter(step)}
+.step-body{flex:1}
+.step-title{font-weight:700;color:var(--t0);font-size:13.5px;margin-bottom:2px}
+.step-desc{color:var(--t1);font-size:13px}
+
+/* ── Cost chart ── */
+.bar-chart{margin:14px 0 24px;display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{width:200px;font-size:12px;color:var(--t1);flex-shrink:0;text-align:right}
+.bar-track{flex:1;background:var(--bg3);border-radius:4px;height:22px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding:0 8px;
+  font-size:11px;font-weight:700;color:#fff;white-space:nowrap;min-width:70px}
+.bar-val{width:100px;font-size:12px;font-weight:600;color:var(--ok);flex-shrink:0}
+
+/* ── Shortcut table ── */
+.shortcut-key{background:var(--bg4);border:1px solid var(--bds);border-radius:4px;
+  padding:2px 8px;font-family:monospace;font-size:12px;color:var(--t0);white-space:nowrap}
+
+/* ── Toolbar grid ── */
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:14px 0 22px}
+.tool-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg2);
+  border:1px solid var(--bd);border-radius:6px;padding:9px 12px}
+.tool-icon{font-size:17px;width:22px;flex-shrink:0;text-align:center;margin-top:1px}
+.tool-name{font-size:12.5px;font-weight:700;color:var(--t0)}
+.tool-desc{font-size:11.5px;color:var(--t2);margin-top:2px;line-height:1.5}
+
+/* ── Section divider ── */
+section{margin-bottom:48px}
+.page-hero{margin-bottom:28px}
+.ver-badge{display:inline-block;background:rgba(74,158,255,.15);color:var(--acc);
+  border:1px solid rgba(74,158,255,.3);border-radius:10px;padding:2px 10px;
+  font-size:11px;font-weight:700;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav id="sidebar">
+  <div class="sb-logo">
+    <span>🐼</span>
+    <div>
+      <div>PandaAI</div>
+      <div class="sb-ver">User Guide v3.0</div>
+    </div>
+  </div>
+
+  <div class="sb-section">Getting Started</div>
+  <a href="#quick-start" class="sb-link"><span class="sb-icon">🚀</span>Quick Start</a>
+  <a href="#interface" class="sb-link"><span class="sb-icon">🖥</span>Interface Overview</a>
+
+  <div class="sb-section">Features</div>
+  <a href="#formats" class="sb-link"><span class="sb-icon">📁</span>File Formats</a>
+  <a href="#viewer" class="sb-link"><span class="sb-icon">🧊</span>3D Viewer Tools</a>
+  <a href="#vray" class="sb-link"><span class="sb-icon">✨</span>VRay Quality Render</a>
+  <a href="#personas" class="sb-link"><span class="sb-icon">👥</span>AI Personas</a>
+  <a href="#analysis" class="sb-link"><span class="sb-icon">🔍</span>Analysis Workflow</a>
+
+  <div class="sb-section">The Math-er</div>
+  <a href="#mather" class="sb-link"><span class="sb-icon">🧮</span>What It Does</a>
+  <a href="#mather-workflow" class="sb-link"><span class="sb-icon">⚙️</span>How to Use</a>
+  <a href="#mather-rates" class="sb-link"><span class="sb-icon">₹</span>CPWD SOR Rates</a>
+
+  <div class="sb-section">Reference</div>
+  <a href="#shortcuts" class="sb-link"><span class="sb-icon">⌨️</span>Keyboard Shortcuts</a>
+  <a href="#vault" class="sb-link"><span class="sb-icon">🔒</span>Vault & Security</a>
+  <a href="#tips" class="sb-link"><span class="sb-icon">💡</span>Tips & Limits</a>
+</nav>
+
+<!-- ── MAIN CONTENT ── -->
+<main id="main">
+
+  <!-- HERO -->
+  <div class="page-hero">
+    <div class="ver-badge">Version 3.0 · April 2026</div>
+    <h1>🐼 PandaAI User Guide</h1>
+    <p class="lead">
+      PandaAI is a single-user, GitHub-native PWA for architectural and interior design analysis.
+      Load any 3D or 2D file, apply one or more AI expert personas, run mathematical analysis,
+      and generate encrypted reports — all inside the browser with zero server infrastructure.
+    </p>
+    <div class="callout callout-info">
+      <span class="callout-icon">ℹ️</span>
+      <strong>No installation needed.</strong> PandaAI runs entirely in your browser.
+      All data is AES-256-GCM encrypted before leaving the browser. GitHub is the sole backend.
+    </div>
+  </div>
+
+  <!-- ── QUICK START ── -->
+  <section id="quick-start">
+    <h2>🚀 Quick Start</h2>
+    <p>Three steps from zero to first analysis:</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num"></div>
+        <div class="step-body">
+          <div class="step-title">Enter your GitHub PAT</div>
+          <div class="step-desc">
+            On first load, enter a GitHub Personal Access Token with <code>repo</code> scope.
+            This is your single key — it authenticates the vault <em>and</em> derives the encryption key.
+            Generate at <strong>GitHub → Settings → Developer settings → Personal access tokens</strong>.
+            The PAT is stored in sessionStorage only and cleared when you close the tab.
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num"></div>
+        <div class="step-body">
+          <div class="step-title">Add your Groq API Key</div>
+          <div class="step-desc">
+            Get a free key at <strong>console.groq.com</strong> (takes 30 seconds).
+            Go to <strong>⚙️ Settings → Groq API Key → Change</strong> and paste it.
+            The key is encrypted and saved to your vault — you only enter it once.
+            Without a Groq key, file loading and viewing still work but AI features are disabled.
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num"></div>
+        <div class="step-body">
+          <div class="step-title">Drop a file and analyse</div>
+          <div class="step-desc">
+            Drag any 3D or 2D file onto the viewer, or click <strong>＋</strong> in the file tree.
+            The format is detected automatically. Click <strong>Analyse File</strong> in the bottom bar
+            to generate a full AI report using your selected persona(s).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>First-Use Workflow</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <span class="fs-icon">🔑</span>
+        <div class="fs-label">Enter PAT</div>
+        <div class="fs-sub">GitHub token</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="fs-icon">🤖</span>
+        <div class="fs-label">Add Groq Key</div>
+        <div class="fs-sub">Settings panel</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step acc">
+        <span class="fs-icon">📂</span>
+        <div class="fs-label">Drop File</div>
+        <div class="fs-sub">Any 3D/2D format</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="fs-icon">👥</span>
+        <div class="fs-label">Pick Persona</div>
+        <div class="fs-sub">Topbar → 👥</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="fs-icon">🔍</span>
+        <div class="fs-label">Analyse File</div>
+        <div class="fs-sub">Bottom bar button</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step ok">
+        <span class="fs-icon">📄</span>
+        <div class="fs-label">Report + PDF</div>
+        <div class="fs-sub">Save or print</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── INTERFACE ── -->
+  <section id="interface">
+    <h2>🖥 Interface Overview</h2>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Panel</th><th>Location</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Topbar</td><td>Top edge</td><td>Logo, persona pills, mode badge (Generic/Expert), personas panel (👥), sync indicator, theme toggle, settings</td></tr>
+          <tr><td>File Tree</td><td>Left, 240px</td><td>Lists all uploaded files in vault. Click to open in viewer. Right-click for context menu (rename, move, analyse, delete). Drop zone at bottom.</td></tr>
+          <tr><td>3D Viewer</td><td>Centre</td><td>Three.js WebGL viewer with full toolbar. Supports 3D models, 2D images, SVG, and PDF. Status bar shows file name, vertex/face counts, dimensions, FPS.</td></tr>
+          <tr><td>Chat Panel</td><td>Right, 320px</td><td>Groq 8B chat — ask anything about your model or design. Context-aware (knows what file is loaded). Supports voice input via Whisper.</td></tr>
+          <tr><td>Analysis Panel</td><td>Bottom, 300px</td><td>Split into Report (left) and Refinement Chat (right). Click <strong>Analyse File</strong> to generate a full AI report. Expandable via ⤢ buttons.</td></tr>
+          <tr><td>Personas Panel</td><td>Slides in from right</td><td>Select one or more disciplines. Multiple = Blend mode. Toggle Generic ↔ Expert depth. Accessed via 👥 in topbar.</td></tr>
+          <tr><td>Settings Panel</td><td>Slides in from right</td><td>Change Groq key, GitHub PAT, theme, sync vault, clear cache.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Analysis Panel Controls</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Button</th><th>Location</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>⤢ (top-right of header)</td><td>Analysis header</td><td>Maximise the entire analysis panel to full screen. Click ⤡ to restore.</td></tr>
+          <tr><td>⤢ (inside report box)</td><td>Floating, top-right of report</td><td>Focus on just the report — hides the chat panel. Automatically maximises.</td></tr>
+          <tr><td>⤢ (inside chat header)</td><td>Refinement chat header</td><td>Focus on just the chat — hides the report. Automatically maximises.</td></tr>
+          <tr><td>💾 Save</td><td>Analysis header</td><td>Saves report encrypted to GitHub /reports/ vault.</td></tr>
+          <tr><td>🖨 PDF</td><td>Analysis header</td><td>Opens a styled print window. Use browser Ctrl+P → Save as PDF.</td></tr>
+          <tr><td>Analyse File</td><td>Analysis header</td><td>Runs full AI analysis using selected personas and depth mode.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── FILE FORMATS ── -->
+  <section id="formats">
+    <h2>📁 Supported File Formats</h2>
+    <p>PandaAI supports <strong>100+ file formats</strong> across 8 groups. Drop any file — the format is detected automatically from the extension.</p>
+
+    <h3>Group A — Three.js Native (direct WebGL render)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Extension(s)</th><th>Format</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>STL</code></td><td>Stereolithography</td><td>Most common 3D print / engineering format. Binary STL files ≥ 50 MB are parsed in a Web Worker (no UI freeze).</td></tr>
+          <tr><td><code>OBJ</code> + <code>MTL</code></td><td>Wavefront Object</td><td>Mesh + material definition. Drop the OBJ; MTL support depends on embedded data.</td></tr>
+          <tr><td><code>GLTF</code> <code>GLB</code></td><td>GL Transmission Format</td><td>Preferred format for textured 3D. GLB is self-contained binary. Draco-compressed GLB supported (DRACOLoader pre-loaded).</td></tr>
+          <tr><td><code>FBX</code></td><td>Filmbox</td><td>Common from Maya, 3ds Max. Materials and textures supported via Object URL loading.</td></tr>
+          <tr><td><code>DAE</code></td><td>Collada</td><td>XML-based exchange format from SketchUp, Blender.</td></tr>
+          <tr><td><code>PLY</code></td><td>Polygon File Format</td><td>Point clouds with vertex colours or mesh data.</td></tr>
+          <tr><td><code>PCD</code></td><td>Point Cloud Data</td><td>Rendered as point cloud.</td></tr>
+          <tr><td><code>WRL</code> <code>VRML</code></td><td>Virtual Reality Markup</td><td>Legacy 3D web format.</td></tr>
+          <tr><td><code>VTK</code></td><td>Visualisation Toolkit</td><td>Scientific/engineering mesh format.</td></tr>
+          <tr><td><code>OFF</code></td><td>Object File Format</td><td>Parsed with a custom inline parser.</td></tr>
+          <tr><td><code>3MF</code> <code>AMF</code></td><td>3D Manufacturing / Additive</td><td>3D printing formats from modern slicers.</td></tr>
+          <tr><td><code>USDZ</code> <code>USD</code></td><td>Universal Scene Description</td><td>Apple AR / Pixar format.</td></tr>
+          <tr><td><code>3DS</code></td><td>3D Studio</td><td>Legacy Autodesk format.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Group B — Specialised Parsers (WASM / self-contained)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Extension(s)</th><th>Format</th><th>Parser</th></tr></thead>
+        <tbody>
+          <tr><td><code>DXF</code> <code>DXB</code></td><td>AutoCAD Drawing Exchange</td><td>Self-contained JS parser, renders 2D/3D geometry as Three.js lines and meshes.</td></tr>
+          <tr><td><code>IFC</code> <code>IFCZIP</code> <code>IFCXML</code></td><td>Industry Foundation Classes (BIM)</td><td>web-ifc WASM — full BIM geometry, IFC element metadata extracted for analysis context.</td></tr>
+          <tr><td><code>STEP</code> <code>STP</code> <code>P21</code> <code>IGES</code> <code>IGS</code> <code>SAT</code> <code>SAB</code></td><td>STEP / IGES / SAT</td><td>occt-import-js WASM (Open CASCADE). Engineering exchange formats from CAD applications.</td></tr>
+          <tr><td><code>DWG</code></td><td>AutoCAD Drawing</td><td>DWG is proprietary. The viewer provides a conversion guide (export to DXF from AutoCAD).</td></tr>
+          <tr><td><code>3DM</code></td><td>Rhino 3D</td><td>rhino3dm.js — Rhino/McNeel geometry directly in browser.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Group C — Point Clouds</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Extension(s)</th><th>Format</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>E57</code></td><td>LIDAR Exchange Format</td><td>Point cloud from terrestrial scanners (Faro, Leica, Trimble).</td></tr>
+          <tr><td><code>LAS</code> <code>LAZ</code></td><td>LiDAR Standard / Compressed</td><td>Aerial and terrestrial point cloud. LAZ is zlib-compressed LAS.</td></tr>
+          <tr><td><code>XYZ</code> <code>PTS</code> <code>PTX</code></td><td>ASCII Point Clouds</td><td>Simple text-based point data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Group D — Proprietary (fallback + conversion guide)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Extension</th><th>Format</th><th>How to open in PandaAI</th></tr></thead>
+        <tbody>
+          <tr><td><code>RVT</code> <code>RFA</code></td><td>Autodesk Revit</td><td>Export to IFC from Revit: File → Export → IFC</td></tr>
+          <tr><td><code>NWD</code> <code>NWC</code></td><td>Navisworks</td><td>Export to IFC from Navisworks</td></tr>
+          <tr><td><code>F3D</code> <code>F3Z</code></td><td>Autodesk Fusion 360</td><td>File → Export → STEP or OBJ</td></tr>
+          <tr><td><code>SLDPRT</code> <code>SLDASM</code></td><td>SolidWorks</td><td>File → Save As → STEP (*.step)</td></tr>
+          <tr><td><code>CATpart</code> <code>CATProduct</code></td><td>CATIA</td><td>Export to STEP or IGES</td></tr>
+          <tr><td><code>BLEND</code></td><td>Blender</td><td>File → Export → GLTF 2.0 (recommended) or OBJ</td></tr>
+          <tr><td><code>MAX</code></td><td>3ds Max</td><td>Export to FBX or OBJ</td></tr>
+          <tr><td><code>MA</code> <code>MB</code></td><td>Autodesk Maya</td><td>Export to FBX or OBJ</td></tr>
+          <tr><td><code>SKP</code></td><td>SketchUp</td><td>File → Export → 3D Model → GLTF or DAE</td></tr>
+          <tr><td><code>C4D</code></td><td>Cinema 4D</td><td>Export to FBX or OBJ</td></tr>
+          <tr><td><code>ZTL</code></td><td>ZBrush</td><td>Export to OBJ from ZBrush</td></tr>
+          <tr><td><code>FCStd</code></td><td>FreeCAD</td><td>File → Export → STEP or OBJ</td></tr>
+          <tr><td><code>DGN</code></td><td>MicroStation Bentley</td><td>Export to DXF or DWG via MicroStation or ODA</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Groups E–H — Geospatial, 2D, Fabrication, Voxel</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Group</th><th>Formats</th><th>Rendered as</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-e">E · Geo</span></td><td>KML/KMZ, GeoJSON, DEM/ASC, CityGML, CityJSON, GPX, OSM, SHP</td><td>3D terrain, building footprints, map overlays on Three.js scene</td></tr>
+          <tr><td><span class="tag tag-f">F · 2D</span></td><td>PNG, JPG, GIF, BMP, WebP, TIFF, HEIC, AVIF, SVG, EPS, AI, PDF</td><td>Displayed in 2D viewer overlay. SVG rendered inline; PDF in iframe.</td></tr>
+          <tr><td><span class="tag tag-g">G · Fabrication</span></td><td>GCODE, NC, CNC, TAP, NGC</td><td>G-code toolpath rendered as 3D lines (travel vs cut moves colour-coded)</td></tr>
+          <tr><td><span class="tag tag-h">H · Voxel</span></td><td>VOX (MagicaVoxel)</td><td>Voxel geometry rendered as coloured boxes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── VIEWER ── -->
+  <section id="viewer">
+    <h2>🧊 3D Viewer — Toolbar Reference</h2>
+
+    <h3>Navigation</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">⟳</div><div><div class="tool-name">Orbit</div><div class="tool-desc">Left-click drag to rotate around model. Default active mode.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">✥</div><div><div class="tool-name">Pan</div><div class="tool-desc">Right-click drag to translate the view. Shift+drag also pans.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">⊡</div><div><div class="tool-name">Zoom to Fit</div><div class="tool-desc">Frames entire model in view. Useful after section cuts or explode.</div></div></div>
+    </div>
+
+    <h3>Analysis Tools</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">📏</div><div><div class="tool-name">Measure Distance</div><div class="tool-desc">Click two points on the model surface. Distance shown in model units. Yellow line drawn between points.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">✂️</div><div><div class="tool-name">Section Cut</div><div class="tool-desc">Horizontal slice through model. <strong>Scroll wheel</strong> moves the cutting plane up/down in real time.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">💥</div><div><div class="tool-name">Explode View</div><div class="tool-desc">Spreads all mesh parts apart from the assembly centre. Direction is computed from each part's world position — correct for any hierarchy. Scale is proportional to model size.</div></div></div>
+    </div>
+
+    <h3>Display Modes</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">⬡</div><div><div class="tool-name">Wireframe</div><div class="tool-desc">Shows model as mesh edges only. Useful for checking face topology.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">◈</div><div><div class="tool-name">X-Ray</div><div class="tool-desc">Semi-transparent 25% opacity render. See internal geometry and hidden faces.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">↗</div><div><div class="tool-name">Face Normals</div><div class="tool-desc">Draws green arrows showing surface direction. Inverted normals (inside-out faces) will point inward — useful for mesh QC.</div></div></div>
+    </div>
+
+    <h3>Preset Views</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">⬆</div><div><div class="tool-name">Top View</div><div class="tool-desc">Plan view — looking straight down. Equivalent to architectural plan.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">⬛</div><div><div class="tool-name">Front View</div><div class="tool-desc">Front elevation — camera facing the model from front.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">▶</div><div><div class="tool-name">Side View</div><div class="tool-desc">Side elevation — camera from the right.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">⬡</div><div><div class="tool-name">Isometric</div><div class="tool-desc">Classic 3D iso view — equal-angle from above-right-front.</div></div></div>
+    </div>
+
+    <h3>Navigation Modes</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">🚶</div><div><div class="tool-name">Walk Mode</div><div class="tool-desc">First-person WASD navigation. Space = up, Shift = down. Click canvas to lock pointer. Good for walkthrough of interior spaces.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">🔄</div><div><div class="tool-name">Turntable</div><div class="tool-desc">Auto-rotates model continuously on Y axis for presentation views.</div></div></div>
+    </div>
+
+    <h3>Scene Toggles</h3>
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-icon">⊞</div><div><div class="tool-name">Grid</div><div class="tool-desc">Shows floor grid and XYZ axes helper. Grid scales to model size.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">☀️</div><div><div class="tool-name">Shadows</div><div class="tool-desc">Enables cast shadows from the main directional light.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">✨</div><div><div class="tool-name">VRay Quality Render</div><div class="tool-desc">Full quality mode — see <a href="#vray" style="color:var(--acc)">VRay section</a>.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">🗂</div><div><div class="tool-name">Layers</div><div class="tool-desc">Lists named mesh layers. Toast shows first 6 layer names.</div></div></div>
+      <div class="tool-item"><div class="tool-icon">📷</div><div><div class="tool-name">Screenshot</div><div class="tool-desc">Saves current viewer canvas as PNG. Captures the exact frame including VRay effects.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ── VRAY ── -->
+  <section id="vray">
+    <h2>✨ VRay Quality Render</h2>
+    <p>The <strong>✨</strong> toolbar button toggles a full post-processing pipeline that transforms the flat standard render into a photorealistic-quality output.</p>
+
+    <div class="callout callout-info">
+      <span class="callout-icon">⚡</span>
+      <strong>Hardware accelerated.</strong> VRay mode uses your GPU fully — designed for dedicated graphics cards. All effects render at full resolution.
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Effect</th><th>What it does</th><th>Visual impact</th></tr></thead>
+        <tbody>
+          <tr><td>ACES Tone Mapping</td><td>Maps HDR lighting values to SDR display using the Academy Color Encoding System. Rich contrast, film-like look, no blown highlights.</td><td>★★★★★ Most impactful single change</td></tr>
+          <tr><td>Hemisphere Light</td><td>Replaces flat ambient light with a sky gradient (cool blue #ddeeff from above) + warm ground (#553311 from below). Simulates outdoor sky dome.</td><td>★★★★☆ Kills the "floating in space" look</td></tr>
+          <tr><td>PCF Soft Shadows</td><td>2048×2048 shadow map with percentage-closer filtering. Soft shadow edges with bias correction. Shadow-catching ground plane shows object shadows on "floor".</td><td>★★★★☆ Essential for architectural presentation</td></tr>
+          <tr><td>SSAO (Screen-Space Ambient Occlusion)</td><td>Adds contact shadows in crevices and corners. Makes geometry feel grounded and physically believable. Kernel radius 12, 100 samples.</td><td>★★★★☆ Huge depth improvement</td></tr>
+          <tr><td>Bloom (Unreal)</td><td>Subtle glow on bright surfaces and highlights. Prevents harsh specular highlights from looking digital.</td><td>★★★☆☆ Finishing polish</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <span class="callout-icon">⚠️</span>
+      <strong>VRay mode and shadows share state.</strong> Enabling ✨ VRay activates shadows automatically.
+      Disabling VRay returns to standard render. Screenshot captures VRay output.
+    </div>
+  </section>
+
+  <!-- ── PERSONAS ── -->
+  <section id="personas">
+    <h2>👥 AI Personas</h2>
+    <p>
+      PandaAI has <strong>12 expert personas</strong> — each with a distinct discipline, system prompt, and set of analysis sections.
+      Select via the <strong>👥</strong> button in the topbar. Multiple personas = <strong>Blend mode</strong> — the AI covers all disciplines in one report with a cross-discipline synthesis section.
+    </p>
+
+    <h3>Analysis Depth Modes</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Mode</th><th>Who it's for</th><th>Output style</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Generic</strong></td><td>Design team communication, client briefings, quick review</td><td>5–7 key observations, professional plain language, no code references</td></tr>
+          <tr><td><strong>Expert</strong></td><td>Technical review, code compliance checking, pre-tender stage</td><td>Full code references (IS, NBC, IBC, Eurocodes), ratios, calculations, action register table at end</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>All Personas</h3>
+    <div class="card-grid">
+      <div class="card"><div class="card-emoji">🏛️</div><div class="card-name">Architect</div><div class="card-tag">Spatial design, form, programme, buildability, egress, facade, BIM</div><div class="card-pill" style="background:rgba(74,158,255,.15);color:var(--acc);border:1px solid rgba(74,158,255,.3)">IS 456, NBC, IBC</div></div>
+      <div class="card"><div class="card-emoji">🛋️</div><div class="card-name">Interior Designer</div><div class="card-tag">Space, light, material, furniture, acoustics, ergonomics, FF&amp;E, biophilic</div><div class="card-pill" style="background:rgba(232,168,124,.15);color:var(--int);border:1px solid rgba(232,168,124,.3)">IS 3646, EN 12464</div></div>
+      <div class="card"><div class="card-emoji">🔩</div><div class="card-name">Structural Engineer</div><div class="card-tag">Load paths, D/L ratios, cantilevers, column grid, seismic, IS 456/800</div><div class="card-pill" style="background:rgba(248,113,113,.15);color:var(--struct);border:1px solid rgba(248,113,113,.3)">IS 456, IS 800, IS 1893</div></div>
+      <div class="card"><div class="card-emoji">🏗️</div><div class="card-name">Civil Engineer</div><div class="card-tag">Site, drainage, roads, retaining, utilities, earthworks, IRC codes</div><div class="card-pill" style="background:rgba(251,146,60,.15);color:var(--civil);border:1px solid rgba(251,146,60,.3)">IRC, IS 1742, IS 3764</div></div>
+      <div class="card"><div class="card-emoji">🌿</div><div class="card-name">Landscape Architect</div><div class="card-tag">Planting, SUDS, microclimate, canopy, outdoor comfort, ecological gain</div><div class="card-pill" style="background:rgba(74,222,128,.15);color:var(--land);border:1px solid rgba(74,222,128,.3)">FLL, LEED SS, IGBC</div></div>
+      <div class="card"><div class="card-emoji">⚡</div><div class="card-name">MEP Engineer</div><div class="card-tag">HVAC, electrical, plumbing, BMS, fire services, ceiling voids, riser</div><div class="card-pill" style="background:rgba(167,139,250,.15);color:var(--mep);border:1px solid rgba(167,139,250,.3)">IS 1742, ASHRAE 62.1</div></div>
+      <div class="card"><div class="card-emoji">🔨</div><div class="card-name">Contractor</div><div class="card-tag">Buildability, formwork, sequencing, procurement, logistics, risk</div><div class="card-pill" style="background:rgba(251,191,36,.15);color:var(--contr);border:1px solid rgba(251,191,36,.3)">IS 14687, BS 5975</div></div>
+      <div class="card"><div class="card-emoji">🗺️</div><div class="card-name">Urban Planner</div><div class="card-tag">FSI/FAR, setbacks, active frontage, density, TOD, public realm</div><div class="card-pill" style="background:rgba(56,189,248,.15);color:var(--urb);border:1px solid rgba(56,189,248,.3)">UDCPR, Delhi MP 2041</div></div>
+      <div class="card"><div class="card-emoji">🌱</div><div class="card-name">Sustainability</div><div class="card-tag">Passive design, energy, embodied carbon, LEED, IGBC, GRIHA, ECBC</div><div class="card-pill" style="background:rgba(34,197,94,.15);color:var(--sust);border:1px solid rgba(34,197,94,.3)">ECBC 2017, GRIHA</div></div>
+      <div class="card"><div class="card-emoji">🔥</div><div class="card-name">Fire Safety</div><div class="card-tag">Egress, travel distance, compartmentation, sprinklers, NBC Part 4</div><div class="card-pill" style="background:rgba(239,68,68,.15);color:var(--fire);border:1px solid rgba(239,68,68,.3)">NBC Part 4, BS 9999</div></div>
+      <div class="card"><div class="card-emoji">🎵</div><div class="card-name">Acoustic</div><div class="card-tag">RT60, STC/Rw, flanking, HVAC noise, external noise, vibration</div><div class="card-pill" style="background:rgba(192,132,252,.15);color:var(--aco);border:1px solid rgba(192,132,252,.3)">IS 3483, BS 8233</div></div>
+      <div class="card"><div class="card-emoji">🧮</div><div class="card-name" style="color:var(--math)">The Math-er</div><div class="card-tag">Geometry calculations, BOQ, CPWD SOR cost tables, section properties, complexity score</div><div class="card-pill" style="background:rgba(16,185,129,.15);color:var(--math);border:1px solid rgba(16,185,129,.3)">CPWD SOR 2023, IS 456</div></div>
+      <div class="card"><div class="card-emoji">👤</div><div class="card-name">Client Report</div><div class="card-tag">Plain English — no jargon. What this means for you, questions to ask, decisions needed.</div><div class="card-pill" style="background:rgba(245,158,11,.15);color:var(--cli);border:1px solid rgba(245,158,11,.3)">Non-technical</div></div>
+    </div>
+
+    <h3>Analysis Workflow</h3>
+    <div class="flow">
+      <div class="flow-step"><span class="fs-icon">📂</span><div class="fs-label">Load File</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step acc"><span class="fs-icon">👥</span><div class="fs-label">Select Persona(s)</div><div class="fs-sub">1 = focused · multiple = Blend</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="fs-icon">🔬 / 📋</span><div class="fs-label">Choose Depth</div><div class="fs-sub">Expert or Generic</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step acc"><span class="fs-icon">🔍</span><div class="fs-label">Analyse File</div><div class="fs-sub">70B model</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="fs-icon">💬</span><div class="fs-label">Refine Chat</div><div class="fs-sub">Ask follow-ups</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step ok"><span class="fs-icon">💾 🖨</span><div class="fs-label">Save / PDF</div></div>
+    </div>
+  </section>
+
+  <!-- ── MATHER ── -->
+  <section id="mather">
+    <h2>🧮 The Math-er</h2>
+    <p class="lead">
+      The Math-er is PandaAI's dedicated <strong>computational geometry and cost quantification engine</strong>.
+      It converts raw 3D geometry into precise BOQ-ready measurements, material quantities, and cost tables —
+      all in <span class="inr">₹ INR</span> using CPWD 2023 Delhi Schedule of Rates.
+    </p>
+
+    <div class="callout callout-math">
+      <span class="callout-icon">🧮</span>
+      <strong>Key principle:</strong> The Math-er never guesses. Every value shows its working.
+      Estimated values (from sampling) are clearly flagged as such. All costs are in <strong>₹ INR only</strong>.
+    </div>
+
+    <h3>What The Math-er Analyses</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Category</th><th>Generic Mode</th><th>Expert Mode (adds)</th></tr></thead>
+        <tbody>
+          <tr><td>Geometry</td><td>Surface area, volume, bounding dimensions, perimeter estimate</td><td>Section properties: I_xx, I_yy, radius of gyration r, slenderness ratio l_e/r, section modulus Z</td></tr>
+          <tr><td>Structural check</td><td>Flags obvious dimension issues</td><td>IS 456/IS 800 compliance: min column 230mm, slab D/L ratios, cantilever L/7, beam D/L 1/12–1/15</td></tr>
+          <tr><td>Material takeoff</td><td>Key quantities: concrete m³, steel kg, cladding m²</td><td>Full BOQ: concrete+formwork, HYSD reinforcement, structural steel, masonry, plaster, paint, glazing, timber</td></tr>
+          <tr><td>Cost table</td><td>Summary table: item, qty, unit, rate, cost (all ₹ INR)</td><td>Full CPWD SOR 2023 table + 10% contingency + 15% O&amp;P + Grand Total in ₹ INR</td></tr>
+          <tr><td>Complexity score</td><td>1–10 score with brief rationale</td><td>Score with 0–40% complexity premium applied to costs</td></tr>
+          <tr><td>Carbon</td><td>—</td><td>kgCO2e/m³ estimate per structural material type</td></tr>
+          <tr><td>Quality flags</td><td>Non-manifold indicators, extreme aspect ratios</td><td>Full IS code dimensional compliance table</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── MATHER WORKFLOW ── -->
+  <section id="mather-workflow">
+    <h2>⚙️ How to Use The Math-er</h2>
+
+    <h3>Method 1 — Full Model Analysis (Analyse File button)</h3>
+    <ol style="margin:12px 0 20px;padding-left:20px;display:flex;flex-direction:column;gap:8px">
+      <li style="color:var(--t1);font-size:13.5px">Open the <strong>👥 Personas panel</strong> (topbar)</li>
+      <li style="color:var(--t1);font-size:13.5px">Check <strong>🧮 The Math-er</strong> checkbox (can combine with other personas in Blend mode)</li>
+      <li style="color:var(--t1);font-size:13.5px">Choose <strong>Generic</strong> or <strong>Expert</strong> depth</li>
+      <li style="color:var(--t1);font-size:13.5px">Click <strong>Analyse File</strong> — the full model's geometry is sent to the Math-er</li>
+      <li style="color:var(--t1);font-size:13.5px">Report appears in the analysis panel with cost table in ₹ INR</li>
+      <li style="color:var(--t1);font-size:13.5px">Use refinement chat to ask: <em>"Calculate cost if all concrete is M30"</em> or <em>"What if we use structural steel instead?"</em></li>
+    </ol>
+
+    <h3>Method 2 — Per-Mesh Analysis (Right-Click in 3D View)</h3>
+    <p>When using <strong>Explode View</strong> (💥) or a multi-part assembly, right-click on any individual part to analyse it specifically.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="fs-icon">💥</span><div class="fs-label">Enable Explode</div><div class="fs-sub">Parts separate</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step acc"><span class="fs-icon">🖱</span><div class="fs-label">Right-click Part</div><div class="fs-sub">Context menu appears</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step math"><span class="fs-icon">🧮</span><div class="fs-label">Send to Math-er</div><div class="fs-sub">Extracts geometry</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="fs-icon">⚙️</span><div class="fs-label">Compute Area/Vol</div><div class="fs-sub">≤100k triangles exact<br>larger = sampled</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step ok"><span class="fs-icon">₹</span><div class="fs-label">BOQ + Cost</div><div class="fs-sub">INR report in panel</div></div>
+    </div>
+
+    <h4>Right-click context menu options</h4>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>🧮 Send to Math-er</td><td>Computes exact geometry (area, volume, dimensions, triangle count) and runs full Math-er analysis. Report opens in analysis panel. Analysis panel auto-expands and focuses to report view.</td></tr>
+          <tr><td>📐 Mesh Info</td><td>Quick toast notification showing raw geometry stats — name, face count, dimensions, surface area, volume. No AI call.</td></tr>
+          <tr><td>🔍 Isolate Mesh</td><td>Hides all other meshes — shows only the selected part. Use Fit (⊡) to re-frame. Right-click isolate again to show all.</td></tr>
+          <tr><td>👁 Hide Mesh</td><td>Hides only the selected mesh. Other meshes remain visible.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <span class="callout-icon">⚠️</span>
+      <strong>Large mesh sampling:</strong> For meshes with more than 100,000 triangular faces, area and volume are computed from a uniform sample and scaled. The result is clearly marked as <em>"sampled estimate"</em>. For most architectural/engineering geometry the error is under 3%.
+    </div>
+  </section>
+
+  <!-- ── MATHER RATES ── -->
+  <section id="mather-rates">
+    <h2>₹ CPWD 2023 Schedule of Rates Reference</h2>
+    <p>
+      The Math-er uses <strong>CPWD 2023 Delhi SOR rates</strong> as its base. These are the official rates published by the Central Public Works Department, Government of India.
+      All figures below are in <span class="inr">₹ INR</span>. Rates vary ±15% for other states (Karnataka PWD, Maharashtra PWD, etc.).
+    </p>
+
+    <h3>Structure</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>PCC</td><td>M15, 1:2:4</td><td>m³</td><td class="inr">5,200</td><td>Plain cement concrete, blinding layer</td></tr>
+          <tr><td>RCC</td><td>M20, 1:1.5:3</td><td>m³</td><td class="inr">7,100</td><td>Standard residential/commercial grade</td></tr>
+          <tr><td>RCC</td><td>M25, 1:1:2</td><td>m³</td><td class="inr">7,800</td><td>Structural frame, IS 456 minimum for columns</td></tr>
+          <tr><td>RCC</td><td>M30 (designed mix)</td><td>m³</td><td class="inr">8,400</td><td>Heavy-duty slabs, basement retaining</td></tr>
+          <tr><td>RCC</td><td>M40 (designed mix)</td><td>m³</td><td class="inr">9,500</td><td>High-rise columns, prestressed members</td></tr>
+          <tr><td>HYSD reinforcement</td><td>Fe500, 8–32mm bars</td><td>kg</td><td class="inr">72</td><td>Supply and fix, including binding wire</td></tr>
+          <tr><td>Mild steel reinforcement</td><td>Fe250, 6–10mm</td><td>kg</td><td class="inr">68</td><td>Stirrups and links</td></tr>
+          <tr><td>Structural steel</td><td>IS 2062 E250 sections</td><td>kg</td><td class="inr">96</td><td>Supply, fabricate, erect</td></tr>
+          <tr><td>Structural steel</td><td>IS 2062 E350 (high yield)</td><td>kg</td><td class="inr">108</td><td>Long-span trusses, transfer beams</td></tr>
+          <tr><td>Formwork</td><td>Plywood shuttering, columns</td><td>m²</td><td class="inr">485</td><td>Erect, strip, oil, store</td></tr>
+          <tr><td>Formwork</td><td>Plywood shuttering, slabs</td><td>m²</td><td class="inr">420</td><td>Per use of plywood</td></tr>
+          <tr><td>Centering &amp; shuttering</td><td>Steel props + plywood</td><td>m²</td><td class="inr">320</td><td>Per m² of slab</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Masonry &amp; Walling</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Brick masonry</td><td>230mm thick, 1st class brick, CM 1:6</td><td>m²</td><td class="inr">6,400</td></tr>
+          <tr><td>Brick masonry</td><td>115mm (half-brick), CM 1:4</td><td>m²</td><td class="inr">3,600</td></tr>
+          <tr><td>AAC block masonry</td><td>200mm thick, adhesive mortar</td><td>m²</td><td class="inr">4,900</td></tr>
+          <tr><td>AAC block masonry</td><td>100mm partition</td><td>m²</td><td class="inr">2,800</td></tr>
+          <tr><td>Stone masonry (rubble)</td><td>Coursed, 380mm</td><td>m²</td><td class="inr">5,500</td></tr>
+          <tr><td>Precast block</td><td>Hollow concrete block, 200mm</td><td>m²</td><td class="inr">4,200</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Plaster &amp; Paint</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Cement plaster</td><td>18mm, 1:6, external</td><td>m²</td><td class="inr">198</td></tr>
+          <tr><td>Cement plaster</td><td>12mm, 1:4, internal</td><td>m²</td><td class="inr">165</td></tr>
+          <tr><td>POP punning</td><td>6mm finish coat</td><td>m²</td><td class="inr">148</td></tr>
+          <tr><td>Internal emulsion paint</td><td>Asian Paints / Nerolac, 2 coats</td><td>m²</td><td class="inr">68</td></tr>
+          <tr><td>External acrylic paint</td><td>Weather coat, 2 coats</td><td>m²</td><td class="inr">94</td></tr>
+          <tr><td>Primer + putty + paint (full)</td><td>Wall putty + emulsion, 3 coats</td><td>m²</td><td class="inr">145</td></tr>
+          <tr><td>Texture finish</td><td>Sand face external</td><td>m²</td><td class="inr">185</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Flooring</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Ceramic tile</td><td>300×600, 8mm, adhesive fixed</td><td>m²</td><td class="inr">820</td></tr>
+          <tr><td>Vitrified tile</td><td>600×600, 9mm, glazed</td><td>m²</td><td class="inr">1,480</td></tr>
+          <tr><td>Vitrified tile (large format)</td><td>800×1600, 9mm</td><td>m²</td><td class="inr">2,200</td></tr>
+          <tr><td>Marble flooring</td><td>Indian white marble, 18mm polished</td><td>m²</td><td class="inr">3,400</td></tr>
+          <tr><td>Granite flooring</td><td>Black/grey granite, 18mm</td><td>m²</td><td class="inr">2,800</td></tr>
+          <tr><td>Kota stone</td><td>25mm, Kota blue</td><td>m²</td><td class="inr">1,150</td></tr>
+          <tr><td>Cement tile</td><td>400×400, hand-pressed</td><td>m²</td><td class="inr">950</td></tr>
+          <tr><td>Laminate flooring</td><td>12mm HDF, AC4 grade</td><td>m²</td><td class="inr">1,200</td></tr>
+          <tr><td>Hardwood parquet</td><td>18mm teak/oak, tongue &amp; groove</td><td>m²</td><td class="inr">4,500</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Glazing &amp; Openings</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Aluminium sliding window</td><td>Powder-coated, 5mm glass</td><td>m²</td><td class="inr">3,350</td></tr>
+          <tr><td>UPVC window</td><td>5-chamber profile, DGU</td><td>m²</td><td class="inr">2,900</td></tr>
+          <tr><td>DGU glazing</td><td>6+12+6mm, argon-filled</td><td>m²</td><td class="inr">3,950</td></tr>
+          <tr><td>Structural glazing (curtain wall)</td><td>12mm toughened, silicone joint</td><td>m²</td><td class="inr">5,800</td></tr>
+          <tr><td>Polycarbonate roofing</td><td>10mm multiwall</td><td>m²</td><td class="inr">1,850</td></tr>
+          <tr><td>ACP cladding</td><td>4mm Alucobond, powder coated</td><td>m²</td><td class="inr">2,900</td></tr>
+          <tr><td>Stone cladding (dry)</td><td>25mm granite, stainless anchor</td><td>m²</td><td class="inr">4,200</td></tr>
+          <tr><td>Teak wood door</td><td>Full panel, pre-hung</td><td>leaf</td><td class="inr">24,000</td></tr>
+          <tr><td>Flush door (HMR)</td><td>35mm, laminated finish</td><td>leaf</td><td class="inr">8,500</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>False Ceiling &amp; Waterproofing</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Grid false ceiling</td><td>Armstrong / Saint-Gobain tiles, metal grid</td><td>m²</td><td class="inr">620</td></tr>
+          <tr><td>Gypsum board ceiling</td><td>12.5mm single layer on MS frame</td><td>m²</td><td class="inr">780</td></tr>
+          <tr><td>Waterproofing (terrace)</td><td>Crystalline + APP membrane, 2 layers</td><td>m²</td><td class="inr">480</td></tr>
+          <tr><td>Waterproofing (basement)</td><td>Integral crystalline + DR tanking</td><td>m²</td><td class="inr">950</td></tr>
+          <tr><td>Thermal insulation (roof)</td><td>75mm EPS / XPS board, aluminium foil facing</td><td>m²</td><td class="inr">420</td></tr>
+          <tr><td>Metal deck roofing</td><td>0.55mm GI profile sheet, insulated</td><td>m²</td><td class="inr">3,400</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Cost Calculation Method</h3>
+    <p>The Math-er applies the following formula to generate a project estimate from geometry:</p>
+
+    <div class="callout callout-math">
+      <strong>BOQ Cost Formula:</strong><br><br>
+      <code>Material Quantity (from geometry) × CPWD SOR Rate (₹)</code> = Line Cost<br>
+      <code>Sum of all line costs</code> = Sub-Total<br>
+      <code>Sub-Total × 10%</code> = Contingency<br>
+      <code>(Sub-Total + Contingency) × 15%</code> = Overhead &amp; Profit<br>
+      <code>Sub-Total + Contingency + O&amp;P</code> = <strong>Grand Total (₹ INR)</strong><br><br>
+      Complex geometry adds a <strong>Complexity Premium</strong> of 0–40% based on the Geometric Complexity Score.
+    </div>
+
+    <h3>Geometric Complexity Score → Premium</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Score</th><th>Description</th><th>Premium Applied</th></tr></thead>
+        <tbody>
+          <tr><td>1–2</td><td>Simple rectilinear geometry — standard box shapes, regular grid</td><td class="inr">0%</td></tr>
+          <tr><td>3–4</td><td>Moderate — some curves or irregular plan, mostly standard elements</td><td class="inr">5–10%</td></tr>
+          <tr><td>5–6</td><td>Complex — free-form surfaces, non-standard angles, compound curves</td><td class="inr">10–20%</td></tr>
+          <tr><td>7–8</td><td>Very complex — parametric/freeform geometry, unusual structural challenges</td><td class="inr">20–35%</td></tr>
+          <tr><td>9–10</td><td>Ultra-complex — sculptural, one-off, requires specialist subcontractors throughout</td><td class="inr">35–40%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Cost bar chart visual -->
+    <h3>Rate Comparison — Common Items (₹/unit)</h3>
+    <div class="bar-chart">
+      <div class="bar-row"><div class="bar-label">Granite cladding (m²)</div><div class="bar-track"><div class="bar-fill" style="width:72%;background:#10b981">₹ 4,200</div></div></div>
+      <div class="bar-row"><div class="bar-label">Marble flooring (m²)</div><div class="bar-track"><div class="bar-fill" style="width:58%;background:#10b981">₹ 3,400</div></div></div>
+      <div class="bar-row"><div class="bar-label">Structural glazing (m²)</div><div class="bar-track"><div class="bar-fill" style="width:100%;background:#f87171">₹ 5,800</div></div></div>
+      <div class="bar-row"><div class="bar-label">RCC M25 (m³)</div><div class="bar-track"><div class="bar-fill" style="width:54%;background:#4a9eff">₹ 7,800/m³</div></div></div>
+      <div class="bar-row"><div class="bar-label">Vitrified tile (m²)</div><div class="bar-track"><div class="bar-fill" style="width:25%;background:#a78bfa">₹ 1,480</div></div></div>
+      <div class="bar-row"><div class="bar-label">Brick masonry (m²)</div><div class="bar-track"><div class="bar-fill" style="width:40%;background:#fbbf24">₹ 6,400/m²</div></div></div>
+      <div class="bar-row"><div class="bar-label">Structural steel (kg)</div><div class="bar-track"><div class="bar-fill" style="width:16%;background:#fb923c">₹ 96/kg</div></div></div>
+      <div class="bar-row"><div class="bar-label">HYSD reinforcement (kg)</div><div class="bar-track"><div class="bar-fill" style="width:12%;background:#fb923c">₹ 72/kg</div></div></div>
+      <div class="bar-row"><div class="bar-label">Internal emulsion (m²)</div><div class="bar-track"><div class="bar-fill" style="width:8%;background:#22c55e">₹ 68</div></div></div>
+    </div>
+  </section>
+
+  <!-- ── SHORTCUTS ── -->
+  <section id="shortcuts">
+    <h2>⌨️ Keyboard Shortcuts</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Key / Action</th><th>Context</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><span class="shortcut-key">Enter</span></td><td>Chat input</td><td>Send chat message</td></tr>
+          <tr><td><span class="shortcut-key">Shift</span>+<span class="shortcut-key">Enter</span></td><td>Chat input</td><td>New line in message</td></tr>
+          <tr><td><span class="shortcut-key">Enter</span></td><td>Refinement chat</td><td>Send refinement message</td></tr>
+          <tr><td><span class="shortcut-key">W</span> <span class="shortcut-key">A</span> <span class="shortcut-key">S</span> <span class="shortcut-key">D</span></td><td>Walk mode active</td><td>Move forward / left / back / right</td></tr>
+          <tr><td><span class="shortcut-key">Space</span></td><td>Walk mode active</td><td>Move up</td></tr>
+          <tr><td><span class="shortcut-key">Shift</span></td><td>Walk mode active</td><td>Move down</td></tr>
+          <tr><td><span class="shortcut-key">Arrow Keys</span></td><td>Walk mode active</td><td>Move in corresponding direction</td></tr>
+          <tr><td>Click canvas</td><td>Walk mode active</td><td>Lock pointer (removes cursor for smooth look-around)</td></tr>
+          <tr><td>Left-drag</td><td>3D view, Orbit mode</td><td>Rotate/orbit around model</td></tr>
+          <tr><td>Right-drag</td><td>3D view</td><td>Pan</td></tr>
+          <tr><td>Scroll wheel</td><td>3D view</td><td>Zoom in/out. In Section Cut mode: move cutting plane</td></tr>
+          <tr><td>Right-click mesh</td><td>3D view, model loaded</td><td>Open viewer context menu (Math-er, Info, Isolate, Hide)</td></tr>
+          <tr><td><span class="shortcut-key">Ctrl</span>+<span class="shortcut-key">Shift</span>+<span class="shortcut-key">R</span></td><td>Browser</td><td>Hard reload — clears cache, re-downloads all modules</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── VAULT ── -->
+  <section id="vault">
+    <h2>🔒 Vault &amp; Security</h2>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Data type</th><th>Storage location</th><th>Encryption</th></tr></thead>
+        <tbody>
+          <tr><td>Uploaded files</td><td>Browser IndexedDB (primary) + GitHub /files/ (backup)</td><td>AES-256-GCM for GitHub backup. IndexedDB is local-only.</td></tr>
+          <tr><td>Analysis reports</td><td>GitHub /reports/</td><td>AES-256-GCM encrypted before upload</td></tr>
+          <tr><td>Session logs</td><td>GitHub /sessions/</td><td>Encrypted (except metadata in index.json)</td></tr>
+          <tr><td>File index (metadata)</td><td>GitHub /files/index.json</td><td>AES-256-GCM encrypted</td></tr>
+          <tr><td>Groq API key</td><td>GitHub vault + sessionStorage</td><td>Encrypted in vault; sessionStorage cleared on tab close</td></tr>
+          <tr><td>GitHub PAT</td><td>sessionStorage only</td><td>Never written to disk or any storage</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>How Encryption Works</h3>
+    <div class="callout callout-info">
+      <strong>AES-256-GCM with PBKDF2 key derivation.</strong><br>
+      Your GitHub PAT → PBKDF2 (SHA-256, 310,000 iterations, 16-byte salt) → 256-bit AES key.
+      Every file, report, and session is encrypted with a unique IV before any GitHub write.
+      The PAT never leaves the browser. GitHub only ever sees ciphertext.
+    </div>
+
+    <h3>Offline Behaviour</h3>
+    <p>The service worker pre-caches <strong>all modules, CDN libraries, and loaders</strong> on first install. After the first load in Tokyo (or any location), subsequent sessions run 100% from cache. The only network calls are Groq API and GitHub sync — nothing else.</p>
+    <p>Clear the module cache via <strong>⚙️ Settings → Clear Module Cache</strong>. The app re-downloads everything on the next reload.</p>
+  </section>
+
+  <!-- ── TIPS ── -->
+  <section id="tips">
+    <h2>💡 Tips &amp; Performance Notes</h2>
+
+    <h3>Large File Performance (200MB+)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Format</th><th>Parsing strategy</th><th>Expected behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>STL ≥ 50 MB</td><td>Web Worker (off main thread)</td><td>UI stays fully responsive. Progress bar shows 0–100%. No stutter.</td></tr>
+          <tr><td>STL &lt; 50 MB</td><td>Main thread (synchronous)</td><td>Brief pause (usually &lt;2s on modern hardware)</td></tr>
+          <tr><td>FBX, GLTF, GLB (large)</td><td>Main thread (Object URL)</td><td>Toast warning shown. Browser may be unresponsive for 10–60s. GPU upload after parse may cause single-frame stutter.</td></tr>
+          <tr><td>IFC (BIM)</td><td>web-ifc WASM (near-native)</td><td>Fast for typical BIM models. Large complex IFC (&gt;200 MB) may take 30–90s.</td></tr>
+          <tr><td>Point clouds (LAS/LAZ)</td><td>JS parser, main thread</td><td>May be slow for 100M+ point datasets. No worker yet for point clouds.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <span class="callout-icon">ℹ️</span>
+      <strong>Memory note:</strong> A 200 MB STL file will use approximately 400–600 MB of browser RAM after parsing
+      (positions + normals arrays + GPU upload). This is unavoidable for dense geometry.
+      On machines with dedicated GPU (like RTX 4080 Super), GPU memory is used separately and does not affect browser RAM budget.
+    </div>
+
+    <h3>Best Practices</h3>
+    <ul style="padding-left:20px;color:var(--t1);font-size:13.5px;display:flex;flex-direction:column;gap:6px;margin:10px 0">
+      <li>For Revit/Navisworks models: always export to <strong>IFC</strong> first — this gives the richest BIM data for analysis</li>
+      <li>For large assemblies: use <strong>GLB</strong> (binary GLTF) instead of FBX — faster parse, better material fidelity</li>
+      <li>For point clouds: down-sample to &lt;10M points before uploading for best performance</li>
+      <li>For multi-part analysis: use <strong>Explode View</strong> first, then right-click individual parts for Math-er per-component cost analysis</li>
+      <li>Use <strong>Expert mode</strong> + single persona for the most technical, code-referenced reports</li>
+      <li>Use <strong>Blend mode</strong> (multiple personas) for comprehensive design reviews where you need multiple disciplines in one report</li>
+      <li>Save reports before closing the tab — encrypted reports are stored in your GitHub vault</li>
+    </ul>
+
+    <h3>AI Model Routing</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Task</th><th>Model</th><th>Context</th></tr></thead>
+        <tbody>
+          <tr><td>Chat panel conversation</td><td>Groq llama-3.1-8b-instant</td><td>Keeps last 40 turns in context. Fast responses.</td></tr>
+          <tr><td>File analysis (Analyse File)</td><td>Groq llama-3.3-70b-versatile</td><td>Full scene geometry + persona system prompts. Up to 4096 output tokens.</td></tr>
+          <tr><td>Math-er analysis</td><td>Groq llama-3.3-70b-versatile</td><td>Mesh geometry data + CPWD SOR context.</td></tr>
+          <tr><td>Refinement chat</td><td>Groq llama-3.3-70b-versatile</td><td>Full report in context + user follow-up.</td></tr>
+          <tr><td>Voice transcription</td><td>Groq whisper-large-v3</td><td>Audio from microphone → text. Pastes into chat input.</td></tr>
+          <tr><td>Session summary</td><td>Groq llama-3.1-8b-instant</td><td>Auto-generated on session close for vault logging.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// Sidebar active link highlight on scroll
+const sections = document.querySelectorAll('section[id]');
+const links     = document.querySelectorAll('.sb-link');
+function updateActive() {
+  let current = '';
+  sections.forEach(sec => {
+    if (window.scrollY >= sec.offsetTop - 80) current = sec.id;
+  });
+  links.forEach(l => {
+    const href = l.getAttribute('href')?.replace('#','');
+    l.classList.toggle('active', href === current);
+  });
+}
+window.addEventListener('scroll', updateActive, { passive: true });
+updateActive();
+</script>
+</body>
+</html>
