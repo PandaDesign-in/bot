@@ -1,6 +1,14 @@
 {
   "sessions": [
     {
+      "session_id": "2026-17-001",
+      "date": "2026-04-20",
+      "week": "2026-W17",
+      "file": "2026-17-001.json",
+      "summary": "Bug fix + feature session — explode fix (world-space direction), DracoLoader for compressed GLB, large-file FileReader progress, analysis panel maximize/focus expand buttons, PDF print export.",
+      "encrypted": false
+    },
+    {
       "session_id": "2026-16-003",
       "date": "2026-04-19",
       "week": "2026-W16",
