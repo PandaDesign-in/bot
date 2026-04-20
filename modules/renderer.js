@@ -20,10 +20,15 @@ let _lights  = {};
 let _wireframe = false, _xray = false, _section = false;
 let _sectionPlane = null;
 let _measureMode = false, _measurePts = [], _measureLine = null;
-let _exploded = false;
-let _origPos  = new Map();
+let _exploded    = false;
+let _origPos     = new Map();
+let _explodeDirs = new Map();   // uuid → { dir: Vector3, orig: Vector3 }
+let _explodeScale = 0;          // current explosion strength 0…1
 let _turntable = false;
 let _walking   = false;
+let _walkYaw   = 0;   // radians — yaw controlled by mouse
+let _walkPitch = 0;   // radians — pitch controlled by mouse
+let _walkSpeed = 0.05;
 let _walkKeys  = {};
 let _normHelper = null;
 let _fpsFrames = 0, _fpsLast = 0;
@@ -473,7 +478,7 @@ async function loadNative(meta, buf) {
     const blob = new Blob([buf]);
     const url  = URL.createObjectURL(blob);
     return new Promise((res, rej) => {
-      loader.load(url, g => { URL.revokeObjectURL(url); res(g.scene); },
+      loader.load(url, g => { URL.revokeObjectURL(url); res(center(g.scene)); },
         null, e => { URL.revokeObjectURL(url); rej(e); });
     });
   }
@@ -695,7 +700,10 @@ function command(id, active) {
     case 't-xray':    _xray = active; applyToMats(m => { m.transparent = active; m.opacity = active ? .25 : 1; m.depthWrite = !active; }); break;
     case 't-normals': toggleNormals(active); break;
     case 't-section': toggleSection(active); break;
-    case 't-explode': active ? explode() : resetExplode(); break;
+    case 't-explode':
+      if (active) { initExplode(); showExplodeSlider(true); applyExplodeScale(0.4); _exploded = true; }
+      else        { resetExplode(); }
+      break;
     case 't-measure': _measureMode = active; if (!active) clearMeasure(); else window.toast('Click two points to measure', 'nfo', 3000); break;
     case 't-top':     setCam('top'); break;
     case 't-front':   setCam('front'); break;
@@ -743,32 +751,73 @@ function toggleSection(on) {
   }, { passive: true });
 }
 
-function explode() {
+// Initialise explosion — compute per-mesh outward directions once
+function initExplode() {
+  _explodeDirs.clear();
   if (!_current || _current._2d) return;
+
   const box = new T.Box3().setFromObject(_current);
   const ctr = box.getCenter(new T.Vector3());
   const sz  = box.getSize(new T.Vector3());
-  // Scale explosion relative to model size so it looks right for any unit system
-  const factor = Math.max(sz.x, sz.y, sz.z) * 0.4 || 1.5;
+  // Unit factor = model max dimension, so scale=1.0 means ~1× the model size of separation
+  const unit = Math.max(sz.x, sz.y, sz.z) || 1;
+
   let i = 0;
   _current.traverse(c => {
     if (!c.isMesh) return;
-    // Use WORLD position so direction is correct for any scene hierarchy
     const wp  = new T.Vector3();
     c.getWorldPosition(wp);
     const dir = wp.clone().sub(ctr);
-    if (dir.length() < 0.001) dir.set(Math.sin(i * 1.3), Math.cos(i * 0.7), Math.sin(i));
-    dir.normalize();
+    // For meshes at or very near world centre (single mesh, or parts at origin)
+    // give each a distinct spread direction so they actually separate
+    if (dir.length() < unit * 0.01) {
+      dir.set(Math.sin(i * 2.4), Math.cos(i * 1.7) * 0.5, Math.cos(i * 2.4));
+    }
+    dir.normalize().multiplyScalar(unit); // store as "full scale" direction
     const orig = _origPos.get(c.uuid) || c.position.clone();
-    c.position.copy(orig).add(dir.multiplyScalar(factor));
+    _explodeDirs.set(c.uuid, { dir: dir.clone(), orig: orig.clone() });
     i++;
   });
-  _exploded = true;
+
+  const meshCount = _explodeDirs.size;
+  if (meshCount === 0) { window.toast('No mesh parts to explode', 'nfo', 2000); return; }
+  window.toast(`Exploding ${meshCount} part${meshCount > 1 ? 's' : ''} — drag slider to scale`, 'nfo', 3000);
 }
-function resetExplode() {
+
+// Apply explosion at strength t (0 = original, 1 = full separation)
+function applyExplodeScale(t) {
+  _explodeScale = t;
   if (!_current || _current._2d) return;
-  _current.traverse(c => { if (c.isMesh && _origPos.has(c.uuid)) c.position.copy(_origPos.get(c.uuid)); });
-  _exploded = false;
+  _current.traverse(c => {
+    if (!c.isMesh) return;
+    const e = _explodeDirs.get(c.uuid);
+    if (!e) return;
+    if (t === 0) {
+      c.position.copy(e.orig);
+    } else {
+      c.position.copy(e.orig).addScaledVector(e.dir, t);
+    }
+  });
+}
+
+function showExplodeSlider(visible) {
+  const bar = document.getElementById('explode-bar');
+  if (!bar) return;
+  bar.classList.toggle('active', visible);
+  if (!visible) {
+    const sl = document.getElementById('explode-slider');
+    if (sl) sl.value = 40; // reset for next time
+    const pct = document.getElementById('explode-pct');
+    if (pct) pct.textContent = '40%';
+  }
+}
+
+function resetExplode() {
+  applyExplodeScale(0);
+  _explodeDirs.clear();
+  _exploded     = false;
+  _explodeScale = 0;
+  showExplodeSlider(false);
 }
 
 function setCam(v) {
@@ -820,25 +869,60 @@ function clearMeasure() {
 }
 
 // ── Walk mode ─────────────────────────────────
+function _onWalkMouse(e) {
+  if (!_walking) return;
+  const sens = 0.002;
+  _walkYaw   -= (e.movementX || 0) * sens;
+  _walkPitch -= (e.movementY || 0) * sens;
+  _walkPitch  = Math.max(-1.5, Math.min(1.5, _walkPitch));
+  _camera.rotation.order = 'YXZ';
+  _camera.rotation.y = _walkYaw;
+  _camera.rotation.x = _walkPitch;
+}
+
 function startWalk() {
   _walking = true; _controls.enabled = false;
-  window.toast('Walk: WASD move · Space/Shift up/down · click to lock pointer', 'nfo', 5000);
+
+  // Sync yaw/pitch from current camera orientation so look direction is preserved
+  _camera.rotation.order = 'YXZ';
+  _walkYaw   = _camera.rotation.y;
+  _walkPitch = _camera.rotation.x;
+
+  // Scale speed to model size — large buildings need faster movement
+  if (_current && !_current._2d) {
+    const sz = new T.Box3().setFromObject(_current).getSize(new T.Vector3());
+    _walkSpeed = Math.max(sz.length() * 0.003, 0.02);
+  } else {
+    _walkSpeed = 0.05;
+  }
+
+  document.addEventListener('mousemove', _onWalkMouse);
   _canvas.addEventListener('click', () => { if (_walking) _canvas.requestPointerLock?.(); }, { once: true });
+  window.toast('Walk: WASD + mouse look · Space/Shift = up/down · click canvas to lock pointer · ⟳ to exit', 'nfo', 6000);
 }
+
 function stopWalk() {
-  _walking = false; _controls.enabled = true;
+  _walking = false;
+  document.removeEventListener('mousemove', _onWalkMouse);
   document.exitPointerLock?.();
+  // Re-sync OrbitControls to look at a point in front of current camera position
+  const fwd = new T.Vector3(0, 0, -1).applyEuler(_camera.rotation);
+  _controls.target.copy(_camera.position).addScaledVector(fwd, Math.max(_walkSpeed * 20, 1));
+  _controls.enabled = true;
+  _controls.update();
 }
+
 function updateWalk() {
-  const spd = 0.05;
-  const dir = new T.Vector3(); _camera.getWorldDirection(dir);
-  const rt  = new T.Vector3().crossVectors(dir, _camera.up).normalize();
-  if (_walkKeys['KeyW']  || _walkKeys['ArrowUp'])    _camera.position.addScaledVector(dir,  spd);
-  if (_walkKeys['KeyS']  || _walkKeys['ArrowDown'])  _camera.position.addScaledVector(dir, -spd);
-  if (_walkKeys['KeyA']  || _walkKeys['ArrowLeft'])  _camera.position.addScaledVector(rt,  -spd);
-  if (_walkKeys['KeyD']  || _walkKeys['ArrowRight']) _camera.position.addScaledVector(rt,   spd);
-  if (_walkKeys['Space'])     _camera.position.y += spd;
-  if (_walkKeys['ShiftLeft']) _camera.position.y -= spd;
+  const spd = _walkSpeed;
+  // Forward/right vectors derived from yaw only (horizontal plane movement)
+  const forward = new T.Vector3(-Math.sin(_walkYaw), 0, -Math.cos(_walkYaw));
+  const right   = new T.Vector3( Math.cos(_walkYaw), 0, -Math.sin(_walkYaw));
+  if (_walkKeys['KeyW']   || _walkKeys['ArrowUp'])    _camera.position.addScaledVector(forward,  spd);
+  if (_walkKeys['KeyS']   || _walkKeys['ArrowDown'])  _camera.position.addScaledVector(forward, -spd);
+  if (_walkKeys['KeyA']   || _walkKeys['ArrowLeft'])  _camera.position.addScaledVector(right,   -spd);
+  if (_walkKeys['KeyD']   || _walkKeys['ArrowRight']) _camera.position.addScaledVector(right,    spd);
+  if (_walkKeys['Space'])                             _camera.position.y += spd;
+  if (_walkKeys['ShiftLeft'] || _walkKeys['ShiftRight']) _camera.position.y -= spd;
 }
 
 // ── Screenshot ────────────────────────────────
@@ -901,8 +985,9 @@ document.getElementById('btn-theme')?.addEventListener('click', () => setTimeout
 // ── Export ───────────────────────────────────
 window.__pandaRenderer = {
   init, load, command, screenshot, getSceneSummary, onThemeChange, extractMeshData,
-  get hasFile()    { return !!_current; },
-  get currentMeta(){ return _meta; },
+  setExplodeScale: applyExplodeScale,
+  get hasFile()     { return !!_current; },
+  get currentMeta() { return _meta; },
   get selectedMesh(){ return _selectedMesh; }
 };
 

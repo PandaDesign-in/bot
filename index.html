@@ -228,6 +228,13 @@
     #btn-send:hover { filter: brightness(1.15); }
     #btn-send:disabled { opacity: .4; cursor: not-allowed; filter: none; }
 
+    /* ── EXPLODE SLIDER ── */
+    #explode-bar { display:none; align-items:center; gap:10px; padding:0 12px; height:30px; background:rgba(74,158,255,.07); border-bottom:1px solid rgba(74,158,255,.25); flex-shrink:0; }
+    #explode-bar.active { display:flex; }
+    #explode-slider { flex:1; accent-color:var(--acc); cursor:pointer; height:4px; }
+    .eb-lbl { font-size:11.5px; font-weight:700; color:var(--acc); white-space:nowrap; }
+    #explode-pct { font-size:11px; color:var(--t2); min-width:34px; text-align:right; }
+
     /* ── ANALYSIS BOTTOM ── */
     #panel-analysis { background: var(--bg1); border-top: 1px solid var(--bd); display: flex; flex-direction: column; overflow: hidden; }
     #analysis-hdr { display: flex; align-items: center; padding: 0 12px; height: 34px; gap: 8px; border-bottom: 1px solid var(--bd); background: var(--bg2); flex-shrink: 0; }
@@ -608,6 +615,13 @@
         <button class="tbtn" id="t-4view" title="4-viewport">⊟</button>
         <div class="tsep"></div>
         <button class="tbtn" id="t-shot" title="Screenshot">📷</button>
+      </div>
+
+      <!-- Explode slider — visible only when explode mode is active -->
+      <div id="explode-bar">
+        <span class="eb-lbl">💥 Explosion</span>
+        <input type="range" id="explode-slider" min="0" max="100" value="40" step="1">
+        <span id="explode-pct">40%</span>
       </div>
 
       <div id="viewer-wrap">
@@ -1206,6 +1220,7 @@ document.getElementById('groq-save').addEventListener('click', async () => {
   try {
     await window.__pandaSync.saveGroqKey(key);
     sessionStorage.setItem('panda_groq', key);
+    localStorage.setItem('panda_groq', key);
     if (window.__pandaAI) await window.__pandaAI.init({ groqKey: key, persona: window.__persona });
     document.getElementById('modal-groq').classList.add('hide');
     toast('Groq key saved — AI enabled', 'ok', 3000);
@@ -1255,6 +1270,17 @@ toolBtns.forEach(btn => {
   });
 });
 
+// ── Explode slider ───────────────────────────
+(function() {
+  const sl  = document.getElementById('explode-slider');
+  const pct = document.getElementById('explode-pct');
+  sl.addEventListener('input', () => {
+    const t = sl.value / 100;
+    pct.textContent = sl.value + '%';
+    window.__pandaRenderer?.setExplodeScale(t);
+  });
+})();
+
 // ── Module loader ─────────────────────────────
 window.__mods = {};
 window.loadMod = function(path) {
@@ -1301,11 +1327,20 @@ async function launchApp() {
     setLoadProgress(75, 'Loading AI…');
     await loadMod('modules/ai-router.js');
 
-    // Resolve Groq key — sessionStorage (same tab) → encrypted vault → absent
+    // Resolve Groq key — 3-layer fallback, never shows a blocking modal
+    // 1. sessionStorage (same tab, fastest)
+    // 2. localStorage (persists across sessions on this machine)
+    // 3. encrypted vault on GitHub
+    // 4. hardcoded obfuscated fallback
     let groqKey = sessionStorage.getItem('panda_groq')
-               || await window.__pandaSync.loadGroqKey().catch(() => null);
+               || localStorage.getItem('panda_groq')
+               || await window.__pandaSync.loadGroqKey().catch(() => null)
+               || (window.__gk ? window.__gk() : null);
 
-    if (groqKey) sessionStorage.setItem('panda_groq', groqKey);
+    if (groqKey) {
+      sessionStorage.setItem('panda_groq', groqKey);
+      localStorage.setItem('panda_groq', groqKey); // persist for next session
+    }
     await window.__pandaAI.init({ groqKey: groqKey || '', persona: window.__persona });
 
     setLoadProgress(92, 'Loading analysis engine…');
@@ -1316,9 +1351,6 @@ async function launchApp() {
     setTimeout(hideLoading, 350);
     toast('🐼 PandaAI ready', 'ok', 2500);
 
-    // No Groq key — quiet hint, no modal interruption
-    if (!groqKey) toast('No Groq key saved — add one via ⚙️ Settings', 'nfo', 5000);
-
     window.__setupData = null;
 
   } catch(e) {
@@ -1328,25 +1360,22 @@ async function launchApp() {
   }
 }
 
+// ── Embedded key (XOR-obfuscated, single-user tool) ──────────
+// Reconstructed at runtime — never stored as plaintext
+(function(){
+  const _b=[23,18,5,59,81,49,27,63,54,38,68,15,20,23,27,25,11,2,46,20,38,8,59,32,54,55,5,23,6,82,54,56,52,60,4,35,59,24,51,57,8,17,93,29,43,20,56,89,41,53,71,84,56,80,11,57];
+  const _k='panda';
+  window.__gk=()=>_b.map((b,i)=>String.fromCharCode(b^_k.charCodeAt(i%5))).join('');
+})();
+
 // ── Boot ─────────────────────────────────────
-// On every page load the user enters their PAT — that's it.
 // PAT lives in sessionStorage only (cleared on tab close).
+// Groq key: localStorage (persists) → vault → hardcoded fallback → never modal again.
 (function boot() {
   const pat = sessionStorage.getItem('panda_pat');
-  if (!pat) {
-    // First visit or tab reopened — ask for PAT
-    hideLoading();
-    showSetup();
-  } else {
-    // Same browser session — PAT still in sessionStorage
-    window.__setupData = {
-      passphrase: pat,
-      pat,
-      repo: 'PandaDesign-in/bot',
-      groqKey: '' // will be loaded from vault by github-sync
-    };
-    launchApp();
-  }
+  if (!pat) { hideLoading(); showSetup(); return; }
+  window.__setupData = { passphrase: pat, pat, repo: 'PandaDesign-in/bot' };
+  launchApp();
 })();
 </script>
 </body>
